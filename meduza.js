@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+// TODO: open in browser
+// TODO: show news in minutes
+
 var argv = require('yargs').argv;
 var clc = require('cli-color');
 
@@ -112,15 +115,15 @@ moment.locale(settings.locale);
 
 function showShort(doc) {
   var time = moment(doc.published_at, 'X').format('H:mm');
-  var title = doc.title;
-  var secondTitle = doc.second_title;
+  var title = wrap(doc.title);
+  var secondTitle = doc.second_title ? wrap(doc.second_title) : null;
   var type = doc.tag ? doc.tag.name : doc.document_type;
   var url = 'meduza.io/' + doc.url;
 
   console.log(clc.xterm(245)(time) + ' ' + clc.xterm(215)(type.toUpperCase()));
   console.log(title);
   if (secondTitle) console.log(secondTitle);
-  console.log(clc.xterm(237)(url));
+  console.log(clc.underline.xterm(237)(url));
 }
 
 function showFull(doc) {
