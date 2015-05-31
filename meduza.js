@@ -39,18 +39,18 @@ function showHelp() {
     '\n' +
     'Commands: (you can combine every command with other)\n' +
     '\n' +
-    '  meduza          \tOutput latest news.\n' +
-    '  meduza en       \tOutput latest news from english version.\n' +
-    '  meduza <time>   \tOutput article by time (i.e. 15:42).\n' +
-    '  meduza <type>   \tChoose articles type (default: news). Only one and only in russian.\n' +
+    '  meduza           \tOutput latest news.\n' +
+    '  meduza en        \tOutput latest news from english version.\n' +
+    '  meduza <time>    \tOutput article by time (i.e. 15:42).\n' +
+    '  meduza <type>    \tChoose articles type (default: news). Only one and only in russian.\n' +
     '\n' +
     'Options:\n' +
     '\n' +
     '  -t, --type <type>\tChoose articles type (default: news). Only one and only in russian.\n' +
-    '      --english   \tOutput latest news from english version.\n' +
+    '      --english    \tOutput latest news from english version.\n' +
     '  -s, --show <time>\tOutput article by time (i.e. 15:42).\n' +
-    '  -v, --version   \tDisplay version.\n' +
-    '  -h, --help      \tDisplay help information.\n' +
+    '  -v, --version    \tDisplay version.\n' +
+    '  -h, --help       \tDisplay help information.\n' +
     '\n' +
     'List of categories:\tnews, cards, articles, shapito, polygon.\n'
   );
@@ -63,6 +63,7 @@ function showVersion() {
 
 function showLogo() {
   var logo =
+    '\n' +
     '                         @@#`                                \n' +
     '                         @@@@@@;                             \n' +
     ' \'@@# @@@# @@@:    ;@@.     .#@@+ ;@@  @@@   :@@+    `#@@@\'  \n' +
@@ -85,6 +86,12 @@ if (argv.version || argv.v) {
   showVersion();
   return;
 }
+
+var Spinner = require('cli-spinner').Spinner;
+var spinner = new Spinner('%s');
+spinner.setSpinnerString('⠁⠁⠉⠙⠚⠒⠂⠂⠒⠲⠴⠤⠄⠄⠤⠠⠠⠤⠦⠖⠒⠐⠐⠒⠓⠋⠉⠈⠈');
+spinner.setSpinnerDelay(50);
+spinner.start();
 
 var settings = {
   locale: argv.english ? 'en' : 'ru',
@@ -123,7 +130,7 @@ function showShort(doc) {
   console.log(clc.xterm(245)(time) + ' ' + clc.xterm(215)(type.toUpperCase()));
   console.log(title);
   if (secondTitle) console.log(secondTitle);
-  console.log(clc.underline.xterm(237)(url));
+  console.log( typeof url !== 'undefined' ? clc.xterm(237)(url) : '');
 }
 
 function showFull(doc) {
@@ -151,7 +158,7 @@ function showFull(doc) {
   console.log(clc.xterm(255)(title));
   console.log(clc.xterm(240)(time + (source !== 'Meduza' ? ', ' + t('источник') + ': ' + source : '')));
   console.log('');
-  console.log(text.replace('\n\n\n', '\n').replace('\n\n', '\n'));
+  console.log(text);
   console.log('');
   console.log(' ' + context);
   console.log('');
@@ -169,6 +176,7 @@ function showLine(timestamp) {
 restler
   .get('https://meduza.io/api/v3/search?chrono=' + settings.chrono + '&page=0&per_page=10&locale=' + settings.locale)
   .on('complete', function(data) {
+    spinner.stop(true);
     var collection = data.collection;
     var documents = data.documents;
     var momentBefore;
@@ -181,15 +189,18 @@ restler
 
       if (!settings.show) {
         momentNow = moment(doc.published_at, 'X').format('DDD');
-        if(typeof momentBefore === 'undefined' || momentBefore !== momentNow) {
+        if (typeof momentBefore === 'undefined' || momentBefore !== momentNow) {
           showLine(doc.published_at);
         }
+
         momentBefore = momentNow;
         showShort(doc);
       } else {
         var time = moment(doc.published_at, 'X').format('H:mm');
         if (time === settings.show) {
+          spinner.start();
           restler.get('https://meduza.io/api/v3/' + doc.url).on('complete', function(data) {
+            spinner.stop(true);
             showFull(data.root);
           });
         }
