@@ -134,7 +134,7 @@ var Meduza = {
     var title = wrap(doc.title);
     var secondTitle = doc.second_title ? wrap(doc.second_title) : null;
     var type = doc.tag ? doc.tag.name : doc.document_type;
-    var url = 'meduza.io/' + doc.url;
+    var url = doc.document_type === 'promo' ? doc.promo_url.replace('http://', '') : 'meduza.io/' + doc.url;
 
     console.log(gray(time) + ' ' + gold(type.toUpperCase()));
     console.log(title);
@@ -147,31 +147,34 @@ var Meduza = {
     var time = moment(doc.published_at, 'X').format('LLL');
     var source = doc.source ? doc.source.name : '';
 
-    var $ = cheerio.load(doc.content.body);
+    var text;
 
-//    console.log(doc);
+    if(!doc.content.body) {
+      text = gray('→ ') + gold(doc.promo_url);
+    } else {
+      var $ = cheerio.load(doc.content.body);
+      var text_lead = wrap(html2text.fromString($('.Lead').html(), { wordwrap: null }));
+      var text_body = wrap(html2text.fromString($('.Body').html(), { wordwrap: null }));
+      var text_card = wrap(html2text.fromString($('.Card').html(), { wordwrap: null }));
+      var text_auth = wrap(html2text.fromString($('.Authors').html(), { wordwrap: null }));
+      var text_quot = wrap(html2text.fromString($('.SourceQuote').html(), { wordwrap: null }));
 
-    var text_lead = wrap(html2text.fromString($('.Lead').html(), { wordwrap: null }));
-    var text_body = wrap(html2text.fromString($('.Body').html(), { wordwrap: null }));
-    var text_card = wrap(html2text.fromString($('.Card').html(), { wordwrap: null }));
-    var text_auth = wrap(html2text.fromString($('.Authors').html(), { wordwrap: null }));
-    var text_quot = wrap(html2text.fromString($('.SourceQuote').html(), { wordwrap: null }));
+      text =
+        (text_lead !== 'null' ? text_lead + '\n\n' : '') +
+        (text_body !== 'null' ? text_body + '\n\n' : '') +
+        (text_card !== 'null' ? text_card + '\n\n' : '') +
+        (text_auth !== 'null' ? text_auth + '\n\n' : '') +
+        (text_quot !== 'null' ? gray((new Array(this.settings.wrap)).join('·')) + '\n' + gray(text_quot) + '\n' + gray((new Array(this.settings.wrap)).join('·')) + '\n' : '');
 
-    var text =
-      (text_lead !== 'null' ? text_lead + '\n\n' : '') +
-      (text_body !== 'null' ? text_body + '\n\n' : '') +
-      (text_card !== 'null' ? text_card + '\n\n' : '') +
-      (text_auth !== 'null' ? text_auth + '\n\n' : '') +
-      (text_quot !== 'null' ? gray((new Array(this.settings.wrap)).join('·')) + '\n' + gray(text_quot) + '\n' + gray((new Array(this.settings.wrap)).join('·')) + '\n' : '');
+      var contextEls = $('.Context-item');
+      var context = '<ul>';
+      contextEls.each(function(idx, el) {
+        context += '<li>' + $(el).text() + '</li>';
+      });
 
-    var contextEls = $('.Context-item');
-    var context = '<ul>';
-    contextEls.each(function(idx, el) {
-      context += '<li>' + $(el).text() + '</li>';
-    });
-
-    context += '</ul>';
-    context = html2text.fromString(context);
+      context += '</ul>';
+      context = html2text.fromString(context);
+    }
 
     console.log(gold(type.toUpperCase()));
     console.log(title);
@@ -179,7 +182,7 @@ var Meduza = {
     console.log('');
     console.log(text.trim());
 
-    if(contextEls.length) {
+    if(contextEls && contextEls.length) {
       console.log('');
       console.log(' ' + context);
     }
@@ -199,6 +202,7 @@ var Meduza = {
     this.spinner.stop(true);
   },
   getArticles: function() {
+    this.spinnerShow();
     var _this = this;
 
     restler
@@ -252,7 +256,6 @@ var Meduza = {
     moment.locale(this.settings.locale);
     restler = require('restler');
 
-    this.spinnerShow();
     this.getArticles();
   }
 };
