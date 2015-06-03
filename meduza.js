@@ -1,209 +1,262 @@
 #!/usr/bin/env node
 
-// TODO: open in browser
-// TODO: show news in minutes
-
 var argv = require('yargs').argv;
-var clc = require('cli-color');
+var color = require('cli-color');
+var restler;
+var moment;
+var cheerio;
+var html2text;
+var wrap;
 
 var i18n = {
   'источник': {
     en: 'source'
   }
 };
-var m = function(s, color) {
-  if (!color) color = 215;
-  return clc.xterm(color)(s)
+
+var gold = function(s) {
+  return Meduza.settings.color ? color.xterm(215)(s) : s;
 };
-var t = function(s) {
-  if (settings.locale === 'ru') return s;
-  if (i18n[s] && i18n[s].en) return i18n[s].en;
-
-  return 'i18n?'
+var gray = function(s) {
+  return Meduza.settings.color ? color.xterm(245)(s) : s;
 };
-
-var chronos = {
-  news: { ru: 'Новости' },
-  cards: { ru: 'Картотека' },
-  articles: { ru: 'Истории' },
-  shapito: { ru: 'Шапито' },
-  polygon: { ru: 'Полигон' }
+var dark = function(s) {
+  return Meduza.settings.color ? color.xterm(237)(s) : s;
 };
-var chronos_arr = Object.keys(chronos);
-
-function showHelp() {
-
-  console.log(
-    '\n' +
-    'Usage: ' + m('meduza') + ' [commands/options]\n' +
-    '\n' +
-    'Commands: (you can combine every command with other)\n' +
-    '\n' +
-    '  meduza           \tOutput latest news.\n' +
-    '  meduza en        \tOutput latest news from english version.\n' +
-    '  meduza <time>    \tOutput article by time (i.e. 15:42).\n' +
-    '  meduza <type>    \tChoose articles type (default: news). Only one and only in russian.\n' +
-    '\n' +
-    'Options:\n' +
-    '\n' +
-    '  -t, --type <type>\tChoose articles type (default: news). Only one and only in russian.\n' +
-    '      --english    \tOutput latest news from english version.\n' +
-    '  -s, --show <time>\tOutput article by time (i.e. 15:42).\n' +
-    '  -v, --version    \tDisplay version.\n' +
-    '  -h, --help       \tDisplay help information.\n' +
-    '\n' +
-    'List of categories:\tnews, cards, articles, shapito, polygon.\n'
-  );
-
-}
-
-function showVersion() {
-  console.log(pjson.version);
-}
-
-function showLogo() {
-  var logo =
-    '\n' +
-    '                         @@#`                                \n' +
-    '                         @@@@@@;                             \n' +
-    ' \'@@# @@@# @@@:    ;@@.     .#@@+ ;@@  @@@   :@@+    `#@@@\'  \n' +
-    ':;@@@\';@@@;;@@+  @@@\'@@; @@@  @@+ ;@@` @@@  `+@@@@     :@@@  \n' +
-    '  @@@  @@@  @@+  @@@\'@;  @@@  @@+ ;@@` @@@     ,#    ,@#@@@  \n' +
-    '  @@@  @@@  @@+  @@@     @@@  @@+ ;@@` @@@    #,   :@@,`@@@  \n' +
-    '  @@@  @@@  @@+, @@@     @@@@+@@+ ;@@,,@@@.: @@@@@::@@;,@@@.:\n' +
-    '  @@@  @@@ `@@@. #@@@@+   `@@@@   ;@@@ @@@@   #@@@ ,@@@`@@@@ \n';
-
-  console.log(m(logo));
-}
-
-if (argv.help || argv.h) {
-  showHelp();
-  return;
-}
-
-if (argv.version || argv.v) {
-  var pjson = require('./package.json');
-  showVersion();
-  return;
-}
-
-var Spinner = require('cli-spinner').Spinner;
-var spinner = new Spinner('%s');
-spinner.setSpinnerString('⠁⠁⠉⠙⠚⠒⠂⠂⠒⠲⠴⠤⠄⠄⠤⠠⠠⠤⠦⠖⠒⠐⠐⠒⠓⠋⠉⠈⠈');
-spinner.setSpinnerDelay(50);
-spinner.start();
-
-var settings = {
-  locale: argv.english ? 'en' : 'ru',
-  chrono: argv.type || argv.t ? argv.type || argv.t : 'news',
-  show: argv.show || argv.s ? argv.show || argv.s : undefined,
-  wrap: 80
+var underline = function(s) {
+  return Meduza.settings.color ? color.underline(s) : s;
 };
 
-for (var i = 0, l = argv._.length; i < l; i++) {
-  if (argv._[i] === 'en') {
-    settings.locale = argv._[i];
-  } else if (argv._[i].search(':') > -1) {
-    settings.show = argv._[i];
-  } else if (chronos_arr.indexOf(argv._[i]) > -1) {
-    settings.chrono = argv._[i];
-  }
-}
+var Meduza = {
+  settings: {},
+  chronos: {
+    news: { ru: 'Новости' },
+    cards: { ru: 'Картотека' },
+    articles: { ru: 'Истории' },
+    shapito: { ru: 'Шапито' },
+    polygon: { ru: 'Полигон' }
+  },
+  spinner: undefined,
+  i18n: {
+    'источник': 'source'
+  },
 
-//console.log('Debug: ' + JSON.stringify(settings, null, 2));
+  translate: function(s) {
+    return this.settings.locale === 'en' ? this.i18n[s] || '[' + s + ']' : s;
+  },
+  parseArgv: function() {
+    var settings = {
+      help: argv.help || argv.h,
+      version: argv.version || argv.v,
+      locale: argv.english ? 'en' : 'ru',
+      chrono: argv.type || argv.t ? argv.type || argv.t : 'news',
+      show: argv.show || argv.s ? argv.show || argv.s : undefined,
+      color: !(argv.color === false),
+      wrap: 80,
+      number: parseInt(argv.number || argv.n)
+    };
 
-var restler = require('restler');
-var moment = require('moment');
-var html2text = require('html-to-text');
-var cheerio = require('cheerio');
-var wrap = require('wordwrap')(settings.wrap);
+    if (isNaN(settings.number)) {
+      settings.number = 10;
+    } else if (settings.number < 1) {
+      settings.number = 10;
+    } else if (settings.number > 30) {
+      settings.number = 30;
+    }
 
-moment.locale(settings.locale);
+    var chronos_arr = Object.keys(this.chronos);
 
-function showShort(doc) {
-  var time = moment(doc.published_at, 'X').format('H:mm');
-  var title = wrap(doc.title);
-  var secondTitle = doc.second_title ? wrap(doc.second_title) : null;
-  var type = doc.tag ? doc.tag.name : doc.document_type;
-  var url = 'meduza.io/' + doc.url;
-
-  console.log(clc.xterm(245)(time) + ' ' + clc.xterm(215)(type.toUpperCase()));
-  console.log(title);
-  if (secondTitle) console.log(secondTitle);
-  console.log( typeof url !== 'undefined' ? clc.xterm(237)(url) : '');
-}
-
-function showFull(doc) {
-  var type = doc.tag.name;
-  var title = doc.title;
-  var time = moment(doc.published_at, 'X').format('LLL');
-  var source = doc.source.name;
-
-  $ = cheerio.load(doc.content.body);
-
-  var text = wrap(html2text.fromString($('.Body').html(), {
-    wordwrap: null
-  }));
-
-  var contextEls = $('.Context-item');
-  var context = '<ul>';
-  contextEls.each(function(idx, el) {
-    context += '<li>' + $(el).text() + '</li>';
-  });
-
-  context += '</ul>';
-  context = html2text.fromString(context);
-
-  console.log(clc.xterm(215)(type.toUpperCase()));
-  console.log(clc.xterm(255)(title));
-  console.log(clc.xterm(240)(time + (source !== 'Meduza' ? ', ' + t('источник') + ': ' + source : '')));
-  console.log('');
-  console.log(text);
-  console.log('');
-  console.log(' ' + context);
-  console.log('');
-}
-
-function showLine(timestamp) {
-  var string = '══ ' + moment(timestamp, 'X').format('LL') + ' ';
-  var len = settings.wrap - string.length;
-
-  string += (new Array(len)).join('═');
-
-  console.log(string + '\n');
-}
-
-restler
-  .get('https://meduza.io/api/v3/search?chrono=' + settings.chrono + '&page=0&per_page=10&locale=' + settings.locale)
-  .on('complete', function(data) {
-    spinner.stop(true);
-    var collection = data.collection;
-    var documents = data.documents;
-    var momentBefore;
-    var momentNow;
-
-    if (!settings.show) showLogo();
-
-    for (var i = 0, l = collection.length; i < l; i++) {
-      var doc = documents[collection[i]];
-
-      if (!settings.show) {
-        momentNow = moment(doc.published_at, 'X').format('DDD');
-        if (typeof momentBefore === 'undefined' || momentBefore !== momentNow) {
-          showLine(doc.published_at);
-        }
-
-        momentBefore = momentNow;
-        showShort(doc);
-      } else {
-        var time = moment(doc.published_at, 'X').format('H:mm');
-        if (time === settings.show) {
-          spinner.start();
-          restler.get('https://meduza.io/api/v3/' + doc.url).on('complete', function(data) {
-            spinner.stop(true);
-            showFull(data.root);
-          });
-        }
+    for (var i = 0, l = argv._.length; i < l; i++) {
+      if (argv._[i] === 'en') {
+        settings.locale = argv._[i];
+      } else if (argv._[i].search(':') > -1) {
+        settings.show = argv._[i];
+      } else if (chronos_arr.indexOf(argv._[i]) > -1) {
+        settings.chrono = argv._[i];
       }
     }
-  });
+
+    this.settings = settings;
+  },
+  showHelp: function() {
+    var help =
+      '\n' +
+      'Usage: ' + underline(gold('meduza')) + ' [commands/options]\n' +
+      '\n' +
+      'Commands: ' + gray('(you can combine every command with each other)\n') +
+      '\n' +
+      '  meduza           \tOutput latest news.\n' +
+      '  meduza en        \tOutput latest news from english version.\n' +
+      '  meduza <time>    \tOutput article by time (i.e. 15:42).\n' +
+      '  meduza <type>    \tChoose articles type (default: news). Only one and only in russian.\n' +
+      '\n' +
+      'Options:\n' +
+      '\n' +
+      '  -t, --type <type>\tChoose articles type (default: news). Only one and only in russian.\n' +
+      '      --english    \tOutput latest news from english version.\n' +
+      '  -s, --show <time>\tOutput article by time (i.e. 15:42).\n' +
+      '  -n, --number <num>\tNumber of news in output (from 1 to 30).\n' +
+      '      --no-color   \tOutput without colors.\n' +
+      '  -v, --version    \tDisplay version.\n' +
+      '  -h, --help       \tDisplay help information.\n' +
+      '\n' +
+      'Categories:        \tnews, cards, articles, shapito, polygon.\n';
+
+    console.log(help);
+    return true;
+  },
+  showLogo: function() {
+    var logo =
+      "\n" +
+      "                         @@#`                                \n" +
+      "                         @@@@@@;                             \n" +
+      " '@@# @@@# @@@:    ;@@.     .#@@+ ;@@  @@@   :@@+    `#@@@'  \n" +
+      ":;@@@';@@@;;@@+  @@@'@@; @@@  @@+ ;@@` @@@  `+@@@@     :@@@  \n" +
+      "  @@@  @@@  @@+  @@@'@;  @@@  @@+ ;@@` @@@     ,#    ,@#@@@  \n" +
+      "  @@@  @@@  @@+  @@@     @@@  @@+ ;@@` @@@    #,   :@@,`@@@  \n" +
+      "  @@@  @@@  @@+, @@@     @@@@+@@+ ;@@,,@@@.: @@@@@::@@;,@@@.:\n" +
+      "  @@@  @@@ `@@@. #@@@@+   `@@@@   ;@@@ @@@@   #@@@ ,@@@`@@@@ " + gray('v' + require('./package.json').version);
+
+    console.log(gold(logo));
+  },
+  showVersion: function() {
+    console.log(require('./package.json').version);
+    return true;
+  },
+  showDateLine: function(timestamp) {
+    var string = '══ ' + moment(timestamp, 'X').format('LL') + ' ';
+    var len = this.settings.wrap - string.length;
+    string += (new Array(len)).join('═');
+    console.log('\n' + string + '\n');
+  },
+  showArticleShort: function(doc) {
+    var time = moment(doc.published_at, 'X').format('H:mm');
+    var title = wrap(doc.title);
+    var secondTitle = doc.second_title ? wrap(doc.second_title) : null;
+    var type = doc.tag ? doc.tag.name : doc.document_type;
+    var url = 'meduza.io/' + doc.url;
+
+    console.log(gray(time) + ' ' + gold(type.toUpperCase()));
+    console.log(title);
+    if (secondTitle) console.log(secondTitle);
+    console.log(dark(url));
+  },
+  showArticleFull: function(doc) {
+    var type = doc.tag.name;
+    var title = doc.title;
+    var time = moment(doc.published_at, 'X').format('LLL');
+    var source = doc.source ? doc.source.name : '';
+
+    var $ = cheerio.load(doc.content.body);
+
+//    console.log(doc);
+
+    var text_lead = wrap(html2text.fromString($('.Lead').html(), { wordwrap: null }));
+    var text_body = wrap(html2text.fromString($('.Body').html(), { wordwrap: null }));
+    var text_card = wrap(html2text.fromString($('.Card').html(), { wordwrap: null }));
+    var text_auth = wrap(html2text.fromString($('.Authors').html(), { wordwrap: null }));
+    var text_quot = wrap(html2text.fromString($('.SourceQuote').html(), { wordwrap: null }));
+
+    var text =
+      (text_lead !== 'null' ? text_lead + '\n\n' : '') +
+      (text_body !== 'null' ? text_body + '\n\n' : '') +
+      (text_card !== 'null' ? text_card + '\n\n' : '') +
+      (text_auth !== 'null' ? text_auth + '\n\n' : '') +
+      (text_quot !== 'null' ? gray((new Array(this.settings.wrap)).join('·')) + '\n' + gray(text_quot) + '\n' + gray((new Array(this.settings.wrap)).join('·')) + '\n' : '');
+
+    var contextEls = $('.Context-item');
+    var context = '<ul>';
+    contextEls.each(function(idx, el) {
+      context += '<li>' + $(el).text() + '</li>';
+    });
+
+    context += '</ul>';
+    context = html2text.fromString(context);
+
+    console.log(gold(type.toUpperCase()));
+    console.log(title);
+    console.log(gray(time + (!source || source !== 'Meduza' ? ', ' + this.translate('источник') + ': ' + source : '')));
+    console.log('');
+    console.log(text.trim());
+
+    if(contextEls.length) {
+      console.log('');
+      console.log(' ' + context);
+    }
+
+    console.log('');
+  },
+  spinnerShow: function() {
+    if (!this.spinner) {
+      var Spinner = require('cli-spinner').Spinner;
+      this.spinner = new Spinner('%s');
+      this.spinner.setSpinnerString('⠁⠁⠉⠙⠚⠒⠂⠂⠒⠲⠴⠤⠄⠄⠤⠠⠠⠤⠦⠖⠒⠐⠐⠒⠓⠋⠉⠈⠈');
+      this.spinner.setSpinnerDelay(50);
+    }
+    this.spinner.start();
+  },
+  spinnerHide: function() {
+    this.spinner.stop(true);
+  },
+  getArticles: function() {
+    var _this = this;
+
+    restler
+      .get('https://meduza.io/api/v3/search?chrono=' + this.settings.chrono + '&page=0&per_page=' + this.settings.number + '&locale=' + this.settings.locale)
+      .on('complete', function(data) {
+        _this.spinnerHide();
+
+        var collection = data.collection;
+        var documents = data.documents;
+        var momentBefore;
+        var momentNow;
+
+        if (!_this.settings.show) _this.showLogo();
+
+        for (var i = 0; i < _this.settings.number; i++) {
+          var doc = documents[collection[i]];
+
+          if (!_this.settings.show) {
+            momentNow = moment(doc.published_at, 'X').format('DDD');
+            if (typeof momentBefore === 'undefined' || momentBefore !== momentNow) {
+              _this.showDateLine(doc.published_at);
+            }
+
+            momentBefore = momentNow;
+            _this.showArticleShort(doc);
+          } else {
+            var time = moment(doc.published_at, 'X').format('H:mm');
+            if (time === _this.settings.show) {
+              _this.spinnerShow();
+              restler.get('https://meduza.io/api/v3/' + doc.url)
+                .on('complete', function(data) {
+                  _this.spinnerHide();
+                  _this.showArticleFull(data.root);
+                });
+            }
+          }
+        }
+      })
+  },
+
+  init: function() {
+    this.parseArgv();
+
+    if (this.settings.version) return this.showVersion();
+    if (this.settings.help) return this.showHelp();
+
+    wrap = require('wordwrap')(this.settings.wrap);
+    html2text = require('html-to-text');
+    cheerio = require('cheerio');
+    moment = require('moment');
+    moment.locale(this.settings.locale);
+    restler = require('restler');
+
+    this.spinnerShow();
+    this.getArticles();
+  }
+};
+
+Meduza.init();
+
+module.exports = Meduza;
