@@ -26,6 +26,9 @@ var dark = function(s) {
 var underline = function(s) {
   return Meduza.settings.color ? color.underline(s) : s;
 };
+var bold = function(s) {
+  return Meduza.settings.color ? color.bold.white(s) : s;
+};
 
 var Meduza = {
   settings: {},
@@ -129,6 +132,20 @@ var Meduza = {
     string += (new Array(len)).join('═');
     console.log('\n' + string + '\n');
   },
+  showLeadLine: function() {
+    var wrapCharsCount = this.settings.wrap;
+    var separator = ' ◆ ◆ ◆ ';
+    var isLengthInt = true;
+
+    var lineLength = (wrapCharsCount - separator.length) / 2;
+
+    if(lineLength !== parseInt(lineLength)) {
+      isLengthInt = false;
+      lineLength = parseInt(lineLength);
+    }
+
+    return gray( (new Array(lineLength)).join('─') + separator + (new Array(isLengthInt ? lineLength : lineLength + 1)).join('─') );
+  },
   showArticleShort: function(doc) {
     var time = moment(doc.published_at, 'X').format('H:mm');
     var title = wrap(doc.title);
@@ -143,14 +160,14 @@ var Meduza = {
   },
   showArticleFull: function(doc) {
     var type = doc.tag.name;
-    var title = doc.title;
+    var title = bold(doc.title);
     var time = moment(doc.published_at, 'X').format('LLL');
     var source = doc.source ? doc.source.name : '';
 
     var text;
 
     if(!doc.content.body) {
-      text = gray('→ ') + gold(doc.promo_url);
+      text = gray('→ ') + underline(gold(doc.promo_url));
     } else {
       var $ = cheerio.load(doc.content.body);
       var text_lead = wrap(html2text.fromString($('.Lead').html(), { wordwrap: null }));
@@ -160,7 +177,7 @@ var Meduza = {
       var text_quot = wrap(html2text.fromString($('.SourceQuote').html(), { wordwrap: null }));
 
       text =
-        (text_lead !== 'null' ? text_lead + '\n\n' : '') +
+        (text_lead !== 'null' ? text_lead + '\n\n' + this.showLeadLine() + '\n\n' : '') +
         (text_body !== 'null' ? text_body + '\n\n' : '') +
         (text_card !== 'null' ? text_card + '\n\n' : '') +
         (text_auth !== 'null' ? text_auth + '\n\n' : '') +
