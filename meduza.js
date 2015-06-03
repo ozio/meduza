@@ -2,11 +2,7 @@
 
 var argv = require('yargs').argv;
 var color = require('cli-color');
-var restler;
-var moment;
-var cheerio;
-var html2text;
-var wrap;
+var restler, moment, cheerio, html2text, wrap;
 
 var i18n = {
   'источник': {
@@ -129,22 +125,28 @@ var Meduza = {
   showDateLine: function(timestamp) {
     var string = '══ ' + moment(timestamp, 'X').format('LL') + ' ';
     var len = this.settings.wrap - string.length;
-    string += (new Array(len)).join('═');
+    string += (new Array(len+1)).join('═');
     console.log('\n' + string + '\n');
   },
   showLeadLine: function() {
-    var wrapCharsCount = this.settings.wrap;
-    var separator = ' ◆ ◆ ◆ ';
-    var isLengthInt = true;
+    var wrapCharsCount = this.settings.wrap + 1;
+    var separator = '  ◆ ◆ ◆  ';
+    var isLengthFloat = false;
 
     var lineLength = (wrapCharsCount - separator.length) / 2;
 
     if(lineLength !== parseInt(lineLength)) {
-      isLengthInt = false;
-      lineLength = parseInt(lineLength);
+      isLengthFloat = true;
     }
+    lineLength = parseInt(lineLength) + 1;
 
-    return gray( (new Array(lineLength)).join('─') + separator + (new Array(isLengthInt ? lineLength : lineLength + 1)).join('─') );
+    var line = [
+      (new Array(lineLength - (isLengthFloat ? 0 : 1))).join('─'),
+      separator,
+      (new Array(lineLength)).join('─')
+    ];
+
+    return dark(line.join(''));
   },
   showArticleShort: function(doc) {
     var time = moment(doc.published_at, 'X').format('H:mm');
@@ -158,6 +160,29 @@ var Meduza = {
     if (secondTitle) console.log(secondTitle);
     console.log(dark(url));
   },
+  showQuote: function(source) {
+    //var line = gray((new Array(this.settings.wrap + 1)).join('·')) + '\n' + gray(text_quot) + '\n' + gray((new Array(this.settings.wrap)).join('·')) + '\n';
+    var quoteWrap = require('wordwrap')(this.settings.wrap - 2);
+
+    var wrappedText = quoteWrap(source.quote);
+    var sourceText = quoteWrap(source.name.toUpperCase() + ' [' + source.url + ']');
+    var resText = '';
+
+    var textArr = wrappedText.split('\n');
+    var sourceArr = sourceText.split('\n');
+
+    textArr.push(dark((new Array(this.settings.wrap - 1)).join('─')));
+
+    textArr.forEach(function(item) {
+      resText += gold('┃ ') + item + '\n';
+    });
+// →
+    sourceArr.forEach(function(item, idx) {
+      resText += gold('┃ ') + (idx > 0 ? '  ' : gold('→ ')) + item + '\n';
+    });
+
+    return gray(resText);
+  },
   showArticleFull: function(doc) {
     var type = doc.tag.name;
     var title = bold(doc.title);
@@ -170,18 +195,18 @@ var Meduza = {
       text = gray('→ ') + underline(gold(doc.promo_url));
     } else {
       var $ = cheerio.load(doc.content.body);
+      var url = doc.document_type !== 'promo' ? 'http://meduza.io/' + doc.url : null;
       var text_lead = wrap(html2text.fromString($('.Lead').html(), { wordwrap: null }));
       var text_body = wrap(html2text.fromString($('.Body').html(), { wordwrap: null }));
       var text_card = wrap(html2text.fromString($('.Card').html(), { wordwrap: null }));
       var text_auth = wrap(html2text.fromString($('.Authors').html(), { wordwrap: null }));
-      var text_quot = wrap(html2text.fromString($('.SourceQuote').html(), { wordwrap: null }));
 
       text =
         (text_lead !== 'null' ? text_lead + '\n\n' + this.showLeadLine() + '\n\n' : '') +
         (text_body !== 'null' ? text_body + '\n\n' : '') +
         (text_card !== 'null' ? text_card + '\n\n' : '') +
         (text_auth !== 'null' ? text_auth + '\n\n' : '') +
-        (text_quot !== 'null' ? gray((new Array(this.settings.wrap)).join('·')) + '\n' + gray(text_quot) + '\n' + gray((new Array(this.settings.wrap)).join('·')) + '\n' : '');
+        (doc.source && doc.source.quote ? this.showQuote(doc.source) : '');
 
       var contextEls = $('.Context-item');
       var context = '<ul>';
@@ -204,7 +229,7 @@ var Meduza = {
       console.log(' ' + context);
     }
 
-    console.log('');
+    console.log(url ? underline(dark('\n' + url + '\n')) : '');
   },
   spinnerShow: function() {
     if (!this.spinner) {
