@@ -25,6 +25,19 @@ var underline = function(s) {
 var bold = function(s) {
   return Meduza.settings.color ? color.bold.white(s) : s;
 };
+var center = function(s) {
+  var lines = s.split('\n');
+
+  lines = lines.map(function(line) {
+    var len = line.length;
+    var paddingLength = parseInt((80 - len) / 2) + 1;
+    var padding = (new Array(paddingLength)).join(' ');
+
+    return padding + line;
+  });
+
+  return lines.join('\n');
+};
 
 var Meduza = {
   settings: {},
@@ -128,9 +141,8 @@ var Meduza = {
     string += (new Array(len+1)).join('═');
     console.log('\n' + string + '\n');
   },
-  showLeadLine: function() {
+  showLine: function(separator, color) {
     var wrapCharsCount = this.settings.wrap + 1;
-    var separator = '  ◆ ◆ ◆  ';
     var isLengthFloat = false;
 
     var lineLength = (wrapCharsCount - separator.length) / 2;
@@ -146,7 +158,7 @@ var Meduza = {
       (new Array(lineLength)).join('─')
     ];
 
-    return dark(line.join(''));
+    return color(line.join(''));
   },
   showArticleShort: function(doc) {
     var time = moment(doc.published_at, 'X').format('H:mm');
@@ -181,53 +193,74 @@ var Meduza = {
       resText += gold('┃ ') + (idx > 0 ? '  ' : gold('→ ')) + item + '\n';
     });
 
-    return gray(resText);
+    return gray(resText.trim());
+  },
+  showContext: function(dom, $) {
+    var context = '<ul>';
+    dom.each(function(idx, el) {
+      context += '<li>' + $(el).text() + '<br></li>';
+    });
+    context += '</ul>';
+
+    return context;
+  },
+  showCards: function(doc, dom) {
+    var article = [];
+
+    for(i = 0; i < doc.chapters_count; i++) {
+      article.push(this.showLine('  ' + ((i+1) < 10 ? '0' + (i+1) : (i+1)) + '  ', gold));
+      article.push(bold(center(wrap(doc.table_of_contents[i]))));
+      article.push(wrap(html2text.fromString(dom.eq(i), { wordwrap: null })));
+    }
+
+    return article.join('\n\n')
   },
   showArticleFull: function(doc) {
-    var type = doc.tag.name;
+    var type = doc.tag ? doc.tag.name : doc.document_type;
     var title = bold(doc.title);
     var time = moment(doc.published_at, 'X').format('LLL');
     var source = doc.source ? doc.source.name : '';
+    var url = 'http://meduza.io/' + doc.url;
 
     var text;
+    var $ = cheerio.load(doc.content.body);
+    var compileString = function(html) { return wrap(html2text.fromString(html, { wordwrap: null })); };
+    
+    var dom = {
+      lead: $('.Lead'),
+      body: $('.Body'),
+      cards: $('.CardChapter-body'),
+      authors: $('.Authors'),
+      context: $('.Context-item')
+    };
 
-    if(!doc.content.body) {
-      text = gray('→ ') + underline(gold(doc.promo_url));
-    } else {
-      var $ = cheerio.load(doc.content.body);
-      var url = doc.document_type !== 'promo' ? 'http://meduza.io/' + doc.url : null;
-      var text_lead = wrap(html2text.fromString($('.Lead').html(), { wordwrap: null }));
-      var text_body = wrap(html2text.fromString($('.Body').html(), { wordwrap: null }));
-      var text_card = wrap(html2text.fromString($('.Card').html(), { wordwrap: null }));
-      var text_auth = wrap(html2text.fromString($('.Authors').html(), { wordwrap: null }));
+    var article = [];
 
-      text =
-        (text_lead !== 'null' ? text_lead + '\n\n' + this.showLeadLine() + '\n\n' : '') +
-        (text_body !== 'null' ? text_body + '\n\n' : '') +
-        (text_card !== 'null' ? text_card + '\n\n' : '') +
-        (text_auth !== 'null' ? text_auth + '\n\n' : '') +
-        (doc.source && doc.source.quote ? this.showQuote(doc.source) : '');
+    switch (doc.document_type) {
+      case 'promo':
+        url = doc.promo_url;
+        article.push(gray('→ ') + underline(gold(url)));
+        break;
 
-      var contextEls = $('.Context-item');
-      var context = '<ul>';
-      contextEls.each(function(idx, el) {
-        context += '<li>' + $(el).text() + '</li>';
-      });
+      case 'card':
+        article.push(this.showCards(doc, dom.cards));
+        break;
 
-      context += '</ul>';
-      context = html2text.fromString(context);
+      default:
+        if (dom.lead.length) article.push(compileString(dom.lead.html()), this.showLine('  ◆ ◆ ◆  ', dark));
+        if (dom.body.length) article.push(compileString(dom.body.html()));
+        if (dom.authors.length) article.push(compileString(dom.authors.html()));
+        if (doc.source && doc.source.quote) article.push(this.showQuote(doc.source));
+        if (dom.context.length) article.push(' ' + html2text.fromString(this.showContext(dom.context, $), { wordwrap: this.settings.wrap }));
+
+        break;
     }
 
     console.log(gold(type.toUpperCase()));
     console.log(title);
     console.log(gray(time + (!source || source !== 'Meduza' ? ', ' + this.translate('источник') + ': ' + source : '')));
     console.log('');
-    console.log(text.trim());
-
-    if(contextEls && contextEls.length) {
-      console.log('');
-      console.log(' ' + context);
-    }
+    console.log(article.join('\n\n').trim());
 
     console.log(url ? underline(dark('\n' + url + '\n')) : '');
   },
@@ -254,6 +287,7 @@ var Meduza = {
 
         var collection = data.collection;
         var documents = data.documents;
+
         var momentBefore;
         var momentNow;
 
@@ -261,6 +295,8 @@ var Meduza = {
 
         for (var i = 0; i < _this.settings.number; i++) {
           var doc = documents[collection[i]];
+
+          if (!doc) return;
 
           if (!_this.settings.show) {
             momentNow = moment(doc.published_at, 'X').format('DDD');
