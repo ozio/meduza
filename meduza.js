@@ -2,6 +2,8 @@
 
 // TODO: подписка на вечернюю медузу
 // TODO: стриминг
+// TODO: поиск
+// TODO: категории для английской версии
 
 var argv = require('yargs').argv;
 var color = require('cli-color');
@@ -94,7 +96,10 @@ var Meduza = {
   },
   spinner: undefined,
   i18n: {
-    'источник': 'source'
+    'источник': 'source',
+    'Установленная версия': 'Installed version',
+    'актуальная версия': 'last version',
+    'Пожалуйста, обновите программу (npm update -g meduza).': 'Please, update to the latest version (npm update -g meduza).'
   },
 
   translate: function(s) {
@@ -133,6 +138,26 @@ var Meduza = {
     }
 
     this.settings = settings;
+  },
+  checkUpdates: function() {
+    var _this = this;
+
+    restler
+      .get('https://raw.githubusercontent.com/ozio/meduza/master/package.json')
+      .on('complete', function(data) {
+        var currentVersion = require('./package.json').version;
+        var lastVersion = JSON.parse(data).version;
+
+        _this.spinnerHide();
+
+        if (currentVersion !== lastVersion) {
+          console.log(_this.showLine('', dark));
+          console.log(color.red(center(_this.translate('Установленная версия') + ': ' + currentVersion + ', ' + _this.translate('актуальная версия') + ': ' + lastVersion + '.')));
+          console.log(color.red(center(_this.translate('Пожалуйста, обновите программу (npm update -g meduza).'))));
+          console.log(_this.showLine('', dark));
+          console.log('');
+        }
+      });
   },
   showHelp: function() {
     var help =
@@ -438,6 +463,7 @@ var Meduza = {
     restler = require('restler');
 
     this.getArticles();
+    this.checkUpdates();
   }
 };
 
