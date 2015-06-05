@@ -1,14 +1,11 @@
 #!/usr/bin/env node
 
+// TODO: подписка на вечернюю медузу
+// TODO: стриминг
+
 var argv = require('yargs').argv;
 var color = require('cli-color');
 var restler, moment, cheerio, html2text, wrap;
-
-var i18n = {
-  'источник': {
-    en: 'source'
-  }
-};
 
 var gold = function(s) {
   return Meduza.settings.color ? color.xterm(215)(s) : s;
@@ -37,6 +34,53 @@ var center = function(s) {
   });
 
   return lines.join('\n');
+};
+
+var urlRegex = new RegExp(new RegExp( /* https://gist.github.com/dperini/729294 */
+    // protocol identifier
+  '(?:(?:https?|ftp)://)' +
+    // user:pass authentication
+  '(?:\\S+(?::\\S*)?@)?' +
+  '(?:' +
+    // IP address exclusion
+    // private & local networks
+  '(?!(?:10|127)(?:\\.\\d{1,3}){3})' +
+  '(?!(?:169\\.254|192\\.168)(?:\\.\\d{1,3}){2})' +
+  '(?!172\\.(?:1[6-9]|2\\d|3[0-1])(?:\\.\\d{1,3}){2})' +
+    // IP address dotted notation octets
+    // excludes loopback network 0.0.0.0
+    // excludes reserved space >= 224.0.0.0
+    // excludes network & broacast addresses
+    // (first & last IP address of each class)
+  '(?:[1-9]\\d?|1\\d\\d|2[01]\\d|22[0-3])' +
+  '(?:\\.(?:1?\\d{1,2}|2[0-4]\\d|25[0-5])){2}' +
+  '(?:\\.(?:[1-9]\\d?|1\\d\\d|2[0-4]\\d|25[0-4]))' +
+  '|' +
+    // host name
+  '(?:(?:[a-z\\u00a1-\\uffff0-9]-*)*[a-z\\u00a1-\\uffff0-9]+)' +
+    // domain name
+  '(?:\\.(?:[a-z\\u00a1-\\uffff0-9]-*)*[a-z\\u00a1-\\uffff0-9]+)*' +
+    // TLD identifier
+  '(?:\\.(?:[a-z\\u00a1-\\uffff]{2,}))' +
+  ')' +
+    // port number
+  '(?::\\d{2,5})?' +
+    // resource path
+  '(?:/[^ \\f\\n\\r\\t\\v\​\u00a0\\u1680\​\u180e\\u2000-\\u200a\​\u2028\\u2029​\\u202f\\u205f\​\u3000\\]]*)?', 'g'));
+var bracketsRegex = new RegExp('\\[\\d+\\]', 'g');
+
+var replaceUrls = function(html, arr) {
+  return html.replace(urlRegex, function(link) {
+    var isSpaned = false;
+    if (link.search('"><span') > -1) isSpaned = true;
+    arr.push(link.replace('"><span', ''));
+    return arr.length + (isSpaned ? '"><span' : '');
+  });
+};
+var replaceBrackets = function(html) {
+  return html.replace(bracketsRegex, function(brackets) {
+    return gold(brackets);
+  });
 };
 
 var Meduza = {
@@ -165,19 +209,19 @@ var Meduza = {
     var title = wrap(doc.title);
     var secondTitle = doc.second_title ? wrap(doc.second_title) : null;
     var type = doc.tag ? doc.tag.name : doc.document_type;
-    var url = doc.document_type === 'promo' ? doc.promo_url.replace('http://', '') : 'meduza.io/' + doc.url;
+    var url = doc.document_type === 'promo' ? doc.promo_url.replace('http://', '') : 'https://meduza.io/' + doc.url;
 
     console.log(gray(time) + ' ' + gold(type.toUpperCase()));
     console.log(title);
     if (secondTitle) console.log(secondTitle);
     console.log(dark(url));
   },
-  showQuote: function(source) {
+  showQuote: function(source, urls) {
     //var line = gray((new Array(this.settings.wrap + 1)).join('·')) + '\n' + gray(text_quot) + '\n' + gray((new Array(this.settings.wrap)).join('·')) + '\n';
     var quoteWrap = require('wordwrap')(this.settings.wrap - 2);
 
     var wrappedText = quoteWrap(source.quote);
-    var sourceText = quoteWrap(source.name.toUpperCase() + ' [' + source.url + ']');
+    var sourceText = quoteWrap(source.name.toUpperCase() + ' [' + replaceUrls(source.url, urls) + ']');
     var resText = '';
 
     var textArr = wrappedText.split('\n');
@@ -190,49 +234,103 @@ var Meduza = {
     });
 // →
     sourceArr.forEach(function(item, idx) {
-      resText += gold('┃ ') + (idx > 0 ? '  ' : gold('→ ')) + item + '\n';
+      resText += gold('┃ ') + (idx > 0 ? '  ' : gold('→ ')) + replaceBrackets(item) + '\n';
     });
 
     return gray(resText.trim());
   },
-  showContext: function(dom, $) {
+  showContext: function(dom, $, urls) {
     var context = '<ul>';
     dom.each(function(idx, el) {
-      context += '<li>' + $(el).text() + '<br></li>';
+      context += '<li>' + replaceUrls($(el).text(), urls) + '<br></li>';
     });
     context += '</ul>';
 
     return context;
   },
-  showCards: function(doc, dom) {
+  showCards: function(doc, dom, urls) {
     var article = [];
 
     for(i = 0; i < doc.chapters_count; i++) {
       article.push(this.showLine('  ' + ((i+1) < 10 ? '0' + (i+1) : (i+1)) + '  ', gold));
       article.push(bold(center(wrap(doc.table_of_contents[i]))));
-      article.push(wrap(html2text.fromString(dom.eq(i), { wordwrap: null })));
+      article.push(
+        replaceBrackets(
+          wrap(
+            replaceUrls(
+              html2text.fromString(
+                dom.eq(i), { wordwrap: null }
+              ),
+              urls
+            )
+          )
+        )
+      );
     }
 
     return article.join('\n\n')
   },
+  showLinks: function(arr) {
+    var res = [];
+    var links = '';
+
+    arr.forEach(function(item, idx) {
+      links += '[' + (idx + 1) + '] – ' + underline(item) + '\n';
+    });
+
+    return this.showLine('', dark) + '\n' + gray(links.trim());
+  },
+  showRelated: function(dom, arr) {
+    var res = [];
+
+    var head = bold('Читайте также:');
+    var html = '<ul>' + dom.replace('<ul></ul>', '') + '</ul>';
+    html = replaceBrackets(html2text.fromString(
+        replaceUrls(
+          html, arr
+        )
+      )
+    );
+
+    res.push(head);
+    res.push(' ' + html);
+
+    return res.join('\n\n');
+  },
   showArticleFull: function(doc) {
     var type = doc.tag ? doc.tag.name : doc.document_type;
-    var title = bold(doc.title);
+    var title = bold(wrap(doc.title));
+    var second_title = doc.second_title ? wrap(doc.second_title) : doc.second_title;
     var time = moment(doc.published_at, 'X').format('LLL');
     var source = doc.source ? doc.source.name : '';
-    var url = 'http://meduza.io/' + doc.url;
+    var url = 'https://meduza.io/' + doc.url;
+    var urls = [];
 
     var text;
     var $ = cheerio.load(doc.content.body);
-    var compileString = function(html) { return wrap(html2text.fromString(html, { wordwrap: null })); };
-    
+
+    var compileString = (function(html) {
+      return replaceBrackets(
+        wrap(
+          replaceUrls(
+            html2text.fromString(html, { wordwrap: null }), urls
+          )
+        )
+      );
+    }).bind(this);
+
     var dom = {
       lead: $('.Lead'),
       body: $('.Body'),
+      related: $('.Related ul'),
       cards: $('.CardChapter-body'),
       authors: $('.Authors'),
       context: $('.Context-item')
     };
+
+    dom.body.find('.Related').remove(); // смотреть также вынесено в отдельный блок
+    dom.body.find('.Figure').remove(); // убрал вообще, потому что картинки в консоли не видны, а подписи ломают текст
+    dom.body.find('.Embed').remove(); // то же самое и для видео
 
     var article = [];
 
@@ -243,21 +341,26 @@ var Meduza = {
         break;
 
       case 'card':
-        article.push(this.showCards(doc, dom.cards));
+        article.push(this.showCards(doc, dom.cards, urls));
+        if(urls.length) article.push(this.showLinks(urls));
         break;
 
       default:
         if (dom.lead.length) article.push(compileString(dom.lead.html()), this.showLine('  ◆ ◆ ◆  ', dark));
         if (dom.body.length) article.push(compileString(dom.body.html()));
         if (dom.authors.length) article.push(compileString(dom.authors.html()));
-        if (doc.source && doc.source.quote) article.push(this.showQuote(doc.source));
-        if (dom.context.length) article.push(' ' + html2text.fromString(this.showContext(dom.context, $), { wordwrap: this.settings.wrap }));
+        if (doc.source && doc.source.quote) article.push(this.showQuote(doc.source, urls));
+        if (dom.context.length) article.push(' ' + html2text.fromString(this.showContext(dom.context, $, urls), { wordwrap: this.settings.wrap }));
+        if (dom.related.length) article.push(this.showRelated(dom.related.html(), urls));
+
+        if(urls.length) article.push(this.showLinks(urls));
 
         break;
     }
 
     console.log(gold(type.toUpperCase()));
     console.log(title);
+    if (second_title) console.log(second_title);
     console.log(gray(time + (!source || source !== 'Meduza' ? ', ' + this.translate('источник') + ': ' + source : '')));
     console.log('');
     console.log(article.join('\n\n').trim());
