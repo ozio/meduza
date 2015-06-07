@@ -4,6 +4,7 @@
 // TODO: стриминг
 // TODO: поиск
 // TODO: категории для английской версии
+// TODO: вывод тестов (возможно с интерактивными вопросами)
 
 var argv = require('yargs').argv;
 var color = require('cli-color');
@@ -24,6 +25,9 @@ var underline = function(s) {
 var bold = function(s) {
   return Meduza.settings.color ? color.bold.white(s) : s;
 };
+var italic = function(s) {
+  return Meduza.settings.color ? color.italic(s) : s;
+};
 var center = function(s) {
   var lines = s.split('\n');
 
@@ -38,37 +42,7 @@ var center = function(s) {
   return lines.join('\n');
 };
 
-var urlRegex = new RegExp(new RegExp( /* https://gist.github.com/dperini/729294 */
-    // protocol identifier
-  '(?:(?:https?|ftp)://)' +
-    // user:pass authentication
-  '(?:\\S+(?::\\S*)?@)?' +
-  '(?:' +
-    // IP address exclusion
-    // private & local networks
-  '(?!(?:10|127)(?:\\.\\d{1,3}){3})' +
-  '(?!(?:169\\.254|192\\.168)(?:\\.\\d{1,3}){2})' +
-  '(?!172\\.(?:1[6-9]|2\\d|3[0-1])(?:\\.\\d{1,3}){2})' +
-    // IP address dotted notation octets
-    // excludes loopback network 0.0.0.0
-    // excludes reserved space >= 224.0.0.0
-    // excludes network & broacast addresses
-    // (first & last IP address of each class)
-  '(?:[1-9]\\d?|1\\d\\d|2[01]\\d|22[0-3])' +
-  '(?:\\.(?:1?\\d{1,2}|2[0-4]\\d|25[0-5])){2}' +
-  '(?:\\.(?:[1-9]\\d?|1\\d\\d|2[0-4]\\d|25[0-4]))' +
-  '|' +
-    // host name
-  '(?:(?:[a-z\\u00a1-\\uffff0-9]-*)*[a-z\\u00a1-\\uffff0-9]+)' +
-    // domain name
-  '(?:\\.(?:[a-z\\u00a1-\\uffff0-9]-*)*[a-z\\u00a1-\\uffff0-9]+)*' +
-    // TLD identifier
-  '(?:\\.(?:[a-z\\u00a1-\\uffff]{2,}))' +
-  ')' +
-    // port number
-  '(?::\\d{2,5})?' +
-    // resource path
-  '(?:/[^ \\f\\n\\r\\t\\v\​\u00a0\\u1680\​\u180e\\u2000-\\u200a\​\u2028\\u2029​\\u202f\\u205f\​\u3000\\]]*)?', 'g'));
+var urlRegex = new RegExp(new RegExp('(?:(?:https?|ftp)://)(?:\\S+(?::\\S*)?@)?(?:(?!(?:10|127)(?:\\.\\d{1,3}){3})(?!(?:169\\.254|192\\.168)(?:\\.\\d{1,3}){2})(?!172\\.(?:1[6-9]|2\\d|3[0-1])(?:\\.\\d{1,3}){2})(?:[1-9]\\d?|1\\d\\d|2[01]\\d|22[0-3])(?:\\.(?:1?\\d{1,2}|2[0-4]\\d|25[0-5])){2}(?:\\.(?:[1-9]\\d?|1\\d\\d|2[0-4]\\d|25[0-4]))|(?:(?:[a-z\\u00a1-\\uffff0-9]-*)*[a-z\\u00a1-\\uffff0-9]+)(?:\\.(?:[a-z\\u00a1-\\uffff0-9]-*)*[a-z\\u00a1-\\uffff0-9]+)*(?:\\.(?:[a-z\\u00a1-\\uffff]{2,})))(?::\\d{2,5})?(?:/[^ \\f\\n\\r\\t\\v\​\u00a0\\u1680\​\u180e\\u2000-\\u200a\​\u2028\\u2029​\\u202f\\u205f\​\u3000\\]]*)?', 'g'));
 var bracketsRegex = new RegExp('\\[\\d+\\]', 'g');
 
 var replaceUrls = function(html, arr) {
@@ -322,6 +296,22 @@ var Meduza = {
 
     return res.join('\n\n');
   },
+  showAuthors: function(dom) {
+    var lines = [];
+
+    lines.push(gold('━━━━━━'));
+    var authors = dom.find('.Author');
+
+    authors.each(function(idx, author) {
+      var authorName = cheerio(author).find('.Author-name').text();
+      var authorInfo = cheerio(author).find('.Author-info').text();
+
+      lines.push(bold(authorName));
+      lines.push(italic(authorInfo));
+    });
+
+    return lines.join('\n');
+  },
   showArticleFull: function(doc) {
     var type = doc.tag ? doc.tag.name : doc.document_type;
     var title = bold(wrap(doc.title));
@@ -373,7 +363,7 @@ var Meduza = {
       default:
         if (dom.lead.length) article.push(compileString(dom.lead.html()), this.showLine('  ◆ ◆ ◆  ', dark));
         if (dom.body.length) article.push(compileString(dom.body.html()));
-        if (dom.authors.length) article.push(compileString(dom.authors.html()));
+        if (dom.authors.length) article.push(this.showAuthors(dom.authors));
         if (doc.source && doc.source.quote) article.push(this.showQuote(doc.source, urls));
         if (dom.context.length) article.push(' ' + html2text.fromString(this.showContext(dom.context, $, urls), { wordwrap: this.settings.wrap }));
         if (dom.related.length) article.push(this.showRelated(dom.related.html(), urls));
