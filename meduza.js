@@ -80,7 +80,7 @@ var Meduza = {
     'Ваш вариант?': 'Your choice?',
     'Некорректный ответ': 'Incorrect answer',
     'Правильно!': 'Right!',
-    'Не правильно, правильный ответ': 'Wrong, right answer',
+    'Неправильно, правильный ответ': 'Wrong, right answer',
     'Ваш результат': 'Your result',
     'Просто ноль. :(': 'Zero. :(',
     'Совсем плохо.': 'Very bad.',
@@ -443,7 +443,7 @@ var Meduza = {
                 rightAnswers++;
               } else {
                 // не угадал
-                console.log(color.red(_this.translate('Не правильно, правильный ответ') + ': ') + underline(current.answer));
+                console.log(color.red(_this.translate('Неправильно, правильный ответ') + ': ') + underline(current.answer));
               }
               rl.close();
 
