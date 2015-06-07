@@ -4,11 +4,10 @@
 // TODO: стриминг
 // TODO: поиск
 // TODO: категории для английской версии
-// TODO: вывод тестов (возможно с интерактивными вопросами)
 
 var argv = require('yargs').argv;
 var color = require('cli-color');
-var restler, moment, cheerio, html2text, wrap;
+var restler, moment, cheerio, html2text, wrap, readline;
 
 var gold = function(s) {
   return Meduza.settings.color ? color.xterm(215)(s) : s;
@@ -73,7 +72,22 @@ var Meduza = {
     'источник': 'source',
     'Установленная версия': 'Installed version',
     'актуальная версия': 'last version',
-    'Пожалуйста, обновите программу (npm update -g meduza).': 'Please, update to the latest version (npm update -g meduza).'
+    'Пожалуйста, обновите программу (npm update -g meduza).': 'Please, update to the latest version (npm update -g meduza).',
+    'Это тест, хотите его пройти?': 'Do you want to pass this test?',
+    'Тогда приступим!': 'Well, then go!',
+    'Как жаль..': 'How sad..',
+    'Варианты ответа y/n/yes/no (yes=да, no=нет).': 'The answers is y/n/yes/no.',
+    'Ваш вариант?': 'Your choice?',
+    'Некорректный ответ': 'Incorrect answer',
+    'Правильно!': 'Right!',
+    'Не правильно, правильный ответ': 'Wrong, right answer',
+    'Ваш результат': 'Your result',
+    'Просто ноль. :(': 'Zero. :(',
+    'Совсем плохо.': 'Very bad.',
+    'Если честно, так себе.': 'To be honest, so-so.',
+    'Весьма неплохо!': 'Not bad!',
+    'Отлично!': 'Good!',
+    'Вы превосходны! :)': 'You are excellent! :)'
   },
 
   translate: function(s) {
@@ -312,6 +326,168 @@ var Meduza = {
 
     return lines.join('\n');
   },
+  showQuiz: function(dom) {
+    var _this = this;
+
+    var quizgroups = dom.find('.QuizGroup');
+    var questions = [];
+    var currentQuestion = 0;
+    var rightAnswers = 0;
+
+    cheerio(quizgroups).each(function(idx, item) {
+      var obj = {
+        question: cheerio(item).find('.QuizGroup-title').text(),
+        figure: null,
+        answers: [],
+        answer: null
+      };
+
+      var figure = cheerio(item).find('.Figure');
+      if (figure.length) {
+        obj.figure = {};
+
+        var img = cheerio(figure).find('img');
+        var caption = cheerio(figure).find('.Figure-caption');
+        if (img.length) {
+          obj.figure.url = 'https://meduza.io' + img.attr('src');
+          obj.figure.caption = caption.text().trim();
+        }
+      }
+
+      var answers = cheerio(item).find('.QuizGroup-item');
+      answers.each(function(answerIdx, answerItem) {
+        var answer = cheerio(answerItem);
+
+        obj.answers.push(answer.text());
+
+        if (answer.find('.QuizGroup-radio--ok').length) {
+          obj.answer = (answerIdx + 1) + "";
+        }
+      });
+
+      questions.push(obj);
+    });
+
+    var rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout
+    });
+
+    function askForQuiz() {
+      rl.question('\n' + _this.translate('Это тест, хотите его пройти?') + ' (Y/n) ', function(answer) {
+        if (answer === '') answer = 'y';
+
+        var answers = {
+          y: true, yes: true, Y: true, YES: true,
+          n: false, no: false, N: false, NO: false
+        };
+
+        if (answer in answers) {
+          if(answers[answer]) {
+            // да
+            console.log(_this.translate('Тогда приступим!'));
+            rl.close();
+            return askQuestion();
+          } else {
+            // нет
+            console.log(_this.translate('Как жаль..') + '\n');
+          }
+
+          rl.close();
+        } else {
+          // фиг знает что ответил, повторить
+          console.log(color.red(_this.translate('Варианты ответа y/n/yes/no (yes=да, no=нет).')));
+          return askForQuiz();
+        }
+      });
+    }
+
+    function askQuestion() {
+      var rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout
+      });
+
+      if (questions[currentQuestion]) {
+        var current = questions[currentQuestion];
+        
+        // если следующий вопрос есть
+
+        var askString = '(' + (currentQuestion + 1) + '/' + questions.length + ') ' + current.question;
+        askString = '\n' +
+          bold(wrap(askString)) + 
+          gray(current.figure ? '\n' + underline(current.figure.url) + (current.figure.caption ? '\n' + italic(current.figure.caption) : '') : '') +
+          '\n';
+
+        current.answers.forEach(function(item, idx) {
+          askString += (idx + 1) + ') ' + item + '\n';
+        });
+
+        askString += _this.translate('Ваш вариант?') + ' ';
+
+        rl.question(askString, function(answer) {
+          if (parseInt(answer) == answer) {
+            answer = parseInt(answer);
+
+            if (answer > current.answers.length || answer < 1 ) {
+              // не подходит, повторить
+              console.log(color.red(_this.translate('Некорректный ответ')));
+              rl.close();
+              return askQuestion();
+
+            } else {
+              // подходит
+              if (current.answer == answer) {
+                // угадал
+                console.log(color.green(_this.translate('Правильно!')));
+                rightAnswers++;
+              } else {
+                // не угадал
+                console.log(color.red(_this.translate('Не правильно, правильный ответ') + ': ') + underline(current.answer));
+              }
+              rl.close();
+
+              currentQuestion++;
+              return askQuestion();
+            }
+          } else {
+            // не подходит, повторить
+            console.log(_this.translate('Некорректный ответ'));
+            rl.close();
+            return askQuestion();
+          }
+
+        });
+      } else {
+        // если следующего вопроса нет и пора уходить
+
+        rl.close();
+
+        var resString = '\n' + _this.translate('Ваш результат') + ': ' + rightAnswers + '/' + questions.length + '. ';
+        var resRate = (rightAnswers / questions.length);
+
+        if (resRate === 0) {
+          resString += color.red(_this.translate('Просто ноль. :('));
+        } else if (resRate <= .20) {
+          resString += color.red(_this.translate('Совсем плохо.'));
+        } else if (resRate > .20 && resRate <= .50) {
+          resString += color.yellow(_this.translate('Если честно, так себе.'));
+        } else if (resRate > .50 && resRate <= .80) {
+          resString += color.green(_this.translate('Весьма неплохо!'));
+        } else if (resRate > .80 && resRate <= .99) {
+          resString += color.green(_this.translate('Отлично!'));
+        } else if (resRate === 1) {
+          resString += gold(_this.translate('Вы превосходны! :)'));
+        }
+
+        console.log(resString + '\n');
+
+        process.exit(1);
+      }
+    }
+
+    return askForQuiz();
+  },
   showArticleFull: function(doc) {
     var type = doc.tag ? doc.tag.name : doc.document_type;
     var title = bold(wrap(doc.title));
@@ -339,11 +515,12 @@ var Meduza = {
       body: $('.Body'),
       related: $('.Related ul'),
       cards: $('.CardChapter-body'),
+      quiz: $('.Quiz'),
       authors: $('.Authors'),
       context: $('.Context-item')
     };
 
-    dom.body.find('.Related').remove(); // смотреть также вынесено в отдельный блок
+    dom.body.find('.Related').remove(); // "смотреть также" уже вынесено в отдельный блок
     dom.body.find('.Figure').remove(); // убрал вообще, потому что картинки в консоли не видны, а подписи ломают текст
     dom.body.find('.Embed').remove(); // то же самое и для видео
 
@@ -360,6 +537,14 @@ var Meduza = {
         if(urls.length) article.push(this.showLinks(urls));
         break;
 
+      case 'feature':
+        if (dom.quiz.length) {
+          if (dom.lead.length) article.push(compileString(dom.lead.html()), this.showLine('  ◆ ◆ ◆  ', dark));
+          if (dom.authors.length) article.push(this.showAuthors(dom.authors));
+          if (urls.length) article.push(this.showLinks(urls));
+          break;
+        }
+
       default:
         if (dom.lead.length) article.push(compileString(dom.lead.html()), this.showLine('  ◆ ◆ ◆  ', dark));
         if (dom.body.length) article.push(compileString(dom.body.html()));
@@ -368,7 +553,7 @@ var Meduza = {
         if (dom.context.length) article.push(' ' + html2text.fromString(this.showContext(dom.context, $, urls), { wordwrap: this.settings.wrap }));
         if (dom.related.length) article.push(this.showRelated(dom.related.html(), urls));
 
-        if(urls.length) article.push(this.showLinks(urls));
+        if (urls.length) article.push(this.showLinks(urls));
 
         break;
     }
@@ -380,7 +565,13 @@ var Meduza = {
     console.log('');
     console.log(article.join('\n\n').trim());
 
-    console.log(url ? underline(dark('\n' + url + '\n')) : '');
+    if (dom.quiz.length) {
+      console.log(url ? underline(dark('\n' + url)) : '');
+      this.showQuiz(dom.quiz);
+    } else {
+      console.log(url ? underline(dark('\n' + url + '\n')) : '');
+    }
+
   },
   spinnerShow: function() {
     if (!this.spinner) {
@@ -451,6 +642,7 @@ var Meduza = {
     moment = require('moment');
     moment.locale(this.settings.locale);
     restler = require('restler');
+    readline = require('readline');
 
     this.getArticles();
     this.checkUpdates();
