@@ -1,6 +1,6 @@
 {
   "name": "meduza",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Simple Meduza(meduza.io) terminal client",
   "main": "meduza.js",
   "dependencies": {
