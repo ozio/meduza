@@ -577,7 +577,7 @@ var Meduza = {
     if (!this.spinner) {
       var Spinner = require('cli-spinner').Spinner;
       this.spinner = new Spinner('%s');
-      this.spinner.setSpinnerString('⠁⠁⠉⠙⠚⠒⠂⠂⠒⠲⠴⠤⠄⠄⠤⠠⠠⠤⠦⠖⠒⠐⠐⠒⠓⠋⠉⠈⠈');
+      this.spinner.setSpinnerString('⣾⣽⣻⢿⡿⣟⣯⣷');
       this.spinner.setSpinnerDelay(50);
     }
     this.spinner.start();
