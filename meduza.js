@@ -488,6 +488,22 @@ var Meduza = {
 
     return askForQuiz();
   },
+  showGallery: function(gallery, urls, compileString) {
+    var lines = [];
+
+    gallery.forEach(function(item) {
+      var url = 'https://meduza.io' + item.large_url;
+      var credit = compileString(item.credit);
+      var text = compileString(item.text);
+
+      lines.push(underline(gold(url)));
+      if (credit) lines.push(gray(credit));
+      if (text) lines.push(text);
+      lines.push('');
+    });
+
+    return lines.join('\n');
+  },
   showArticleFull: function(doc) {
     var type = doc.tag ? doc.tag.name : doc.document_type;
     var title = bold(wrap(doc.title));
@@ -548,6 +564,7 @@ var Meduza = {
       default:
         if (dom.lead.length) article.push(compileString(dom.lead.html()), this.showLine('  ◆ ◆ ◆  ', dark));
         if (dom.body.length) article.push(compileString(dom.body.html()));
+        if (doc.gallery) article.push(this.showGallery(doc.gallery, urls, compileString));
         if (dom.authors.length) article.push(this.showAuthors(dom.authors));
         if (doc.source && doc.source.quote) article.push(this.showQuote(doc.source, urls));
         if (dom.context.length) article.push(' ' + html2text.fromString(this.showContext(dom.context, $, urls), { wordwrap: this.settings.wrap }));
