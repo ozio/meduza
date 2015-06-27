@@ -17,6 +17,7 @@ Commands: (you can combine every command with each other)
   meduza en        	Output latest news from english version.
   meduza <time>    	Output article by time (i.e. 15:42).
   meduza <type>    	Choose articles type (default: news). Only one and only in russian.
+  meduza <url>     	Output article by URL. 
 
 Options:
 

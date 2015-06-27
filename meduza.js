@@ -118,6 +118,8 @@ var Meduza = {
     for (var i = 0, l = argv._.length; i < l; i++) {
       if (argv._[i] === 'en') {
         settings.locale = argv._[i];
+      } else if (argv._[i].search('meduza.io/') > -1) {
+        settings.directUrl = argv._[i];
       } else if (argv._[i].search(':') > -1) {
         settings.show = argv._[i];
       } else if (chronos_arr.indexOf(argv._[i]) > -1) {
@@ -158,6 +160,7 @@ var Meduza = {
       '  meduza en        \tOutput latest news from english version.\n' +
       '  meduza <time>    \tOutput article by time (i.e. 15:42).\n' +
       '  meduza <type>    \tChoose articles type (default: news). Only one and only in russian.\n' +
+      '  meduza <url>     \tOutput article by URL.\n' +
       '\n' +
       'Options:\n' +
       '\n' +
@@ -602,6 +605,19 @@ var Meduza = {
   spinnerHide: function() {
     this.spinner.stop(true);
   },
+  getArticleByURL: function(url) {
+    var _this = this;
+
+    var pathnameStart = url.search('meduza.io/') + 'meduza.io/'.length;
+    var pathname = url.slice(pathnameStart);
+
+    this.spinnerShow();
+    restler.get('https://meduza.io/api/v3/' + pathname)
+      .on('complete', function(data) {
+        _this.spinnerHide();
+        _this.showArticleFull(data.root);
+      });
+  },
   getArticles: function() {
     this.spinnerShow();
     var _this = this;
@@ -661,7 +677,12 @@ var Meduza = {
     restler = require('restler');
     readline = require('readline');
 
-    this.getArticles();
+    if (this.settings.directUrl) {
+      this.getArticleByURL(this.settings.directUrl)
+    } else {
+      this.getArticles();
+    }
+
     this.checkUpdates();
   }
 };
