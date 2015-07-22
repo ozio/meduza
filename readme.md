@@ -1,6 +1,6 @@
 # Meduza [<3](https://meduza.io/shapito/2015/06/02/vyshel-neofitsialnyy-terminalnyy-klient-meduzy)
 
-Simple Meduza([meduza.io](https://meduza.io)) terminal client. 
+Simple Meduza([meduza.io](https://meduza.io)) terminal client.
 
 ## Installation
 
@@ -17,7 +17,7 @@ Commands: (you can combine every command with each other)
   meduza en        	Output latest news from english version.
   meduza <time>    	Output article by time (i.e. 15:42).
   meduza <type>    	Choose articles type (default: news). Only one and only in russian.
-  meduza <url>     	Output article by URL. 
+  meduza <url>     	Output article by URL.
 
 Options:
 
@@ -26,6 +26,7 @@ Options:
   -s, --show <time>	Output article by time (i.e. 15:42).
   -n, --number <num>	Number of news in output (from 1 to 30).
       --no-color   	Output without colors.
+      --exchange   	Show current exchange rate.
   -v, --version    	Display version.
   -h, --help       	Display help information.
 
