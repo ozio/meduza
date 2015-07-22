@@ -102,7 +102,8 @@ var Meduza = {
       show: argv.show || argv.s ? argv.show || argv.s : undefined,
       color: !(argv.color === false),
       wrap: 80,
-      number: parseInt(argv.number || argv.n)
+      number: parseInt(argv.number || argv.n),
+      exchange: argv.exchange
     };
 
     if (isNaN(settings.number)) {
@@ -169,6 +170,7 @@ var Meduza = {
       '  -s, --show <time>\tOutput article by time (i.e. 15:42).\n' +
       '  -n, --number <num>\tNumber of news in output (from 1 to 30).\n' +
       '      --no-color   \tOutput without colors.\n' +
+      '      --exchange   \tShow current exchange rate.\n' +
       '  -v, --version    \tDisplay version.\n' +
       '  -h, --help       \tDisplay help information.\n' +
       '\n' +
@@ -413,12 +415,12 @@ var Meduza = {
 
       if (questions[currentQuestion]) {
         var current = questions[currentQuestion];
-        
+
         // если следующий вопрос есть
 
         var askString = '(' + (currentQuestion + 1) + '/' + questions.length + ') ' + current.question;
         askString = '\n' +
-          bold(wrap(askString)) + 
+          bold(wrap(askString)) +
           gray(current.figure ? '\n' + underline(current.figure.url) + (current.figure.caption ? '\n' + italic(current.figure.caption) : '') : '') +
           '\n';
 
@@ -663,6 +665,30 @@ var Meduza = {
       })
   },
 
+  showExchangeRate: function() {
+    this.spinnerShow();
+    var _this = this;
+
+    restler
+      .get('https://meduza.io/api/v3/stock/all')
+      .on('complete', function(data) {
+        _this.spinnerHide();
+        var exchange, exchangeJSON;
+        try {
+          exchangeJSON = JSON.parse(data);
+          exchange =
+            'USD: ' + exchangeJSON.usd.current.toFixed(2) +
+            '\nEUR: ' + exchangeJSON.eur.current.toFixed(2) +
+            '\nBrent: ' + exchangeJSON.brent.current.toFixed(2);
+
+        } catch (e) {
+          exchange = 'Sorry, something went wrong';
+        } finally {
+          console.log(exchange);
+        }
+      });
+  },
+
   init: function() {
     this.parseArgv();
 
@@ -676,6 +702,8 @@ var Meduza = {
     moment.locale(this.settings.locale);
     restler = require('restler');
     readline = require('readline');
+
+    if (this.settings.exchange) return this.showExchangeRate();
 
     if (this.settings.directUrl) {
       this.getArticleByURL(this.settings.directUrl)
