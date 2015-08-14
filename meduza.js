@@ -67,6 +67,15 @@ var Meduza = {
     shapito: { ru: 'Шапито' },
     polygon: { ru: 'Полигон' }
   },
+  currency: {
+    'EUR': '€',
+    'RUB': '₽',
+    'USD': '$',
+    'OIL': '▲',
+    '/': '/',
+    'up': color.green('↑'),
+    'down': color.red('↓')
+  },
   spinner: undefined,
   i18n: {
     'источник': 'source',
@@ -671,15 +680,21 @@ var Meduza = {
 
     restler
       .get('https://meduza.io/api/v3/stock/all')
-      .on('complete', function(data) {
+      .on('complete', function(result) {
         _this.spinnerHide();
-        var exchange, exchangeJSON;
+        var exchange;
+        var data;
+
         try {
-          exchangeJSON = JSON.parse(data);
-          exchange =
-            'USD: ' + exchangeJSON.usd.current.toFixed(2) +
-            '\nEUR: ' + exchangeJSON.eur.current.toFixed(2) +
-            '\nBrent: ' + exchangeJSON.brent.current.toFixed(2);
+          data = JSON.parse(result);
+
+          var strings = [];
+
+          strings.push( gold(Meduza.currency.EUR) + ' ' + data.eur.current.toFixed(2) + Meduza.currency[data.eur.state]);
+          strings.push( gold(Meduza.currency.USD) + ' ' + data.usd.current.toFixed(2) + Meduza.currency[data.eur.state]);
+          strings.push( gold(Meduza.currency.OIL) + ' ' + data.brent.current.toFixed(2) + Meduza.currency[data.eur.state]);
+
+          exchange = strings.join('  ');
 
         } catch (e) {
           exchange = 'Sorry, something went wrong';
