@@ -29,6 +29,7 @@ Options:
       --exchange   	Show current exchange rate.
   -v, --version    	Display version.
   -h, --help       	Display help information.
+      --sort <recency>	Sort news by recency (latest or oldest).
 
 Categories:        	news, cards, articles, shapito, polygon.
 ```

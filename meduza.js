@@ -112,7 +112,8 @@ var Meduza = {
       color: !(argv.color === false),
       wrap: 80,
       number: parseInt(argv.number || argv.n),
-      exchange: argv.exchange
+      exchange: argv.exchange,
+      sort: argv.sort
     };
 
     if (isNaN(settings.number)) {
@@ -182,6 +183,7 @@ var Meduza = {
       '      --exchange   \tShow current exchange rate.\n' +
       '  -v, --version    \tDisplay version.\n' +
       '  -h, --help       \tDisplay help information.\n' +
+      '      --sort <recency>\tSort news by recency (latest or oldest).\n' +
       '\n' +
       'Categories:        \tnews, cards, articles, shapito, polygon.\n';
 
@@ -640,6 +642,10 @@ var Meduza = {
 
         var collection = data.collection;
         var documents = data.documents;
+
+        if (_this.settings.sort === 'oldest') {
+          collection = collection.reverse();
+        }
 
         var momentBefore;
         var momentNow;
