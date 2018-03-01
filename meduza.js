@@ -220,7 +220,7 @@ Categories:        \tnews, cards, articles, shapito, polygon.
   showDateLine: function(timestamp) {
     let string = `══ ${moment(timestamp, 'X').format('LL')} `;
     const len = this.settings.wrap - string.length;
-    string += (new Array(len+1)).join('═');
+    string += (new Array(len + 1)).join('═');
     console.log(`\n${string}\n`);
   },
 
@@ -230,7 +230,7 @@ Categories:        \tnews, cards, articles, shapito, polygon.
 
     let lineLength = (wrapCharsCount - separator.length) / 2;
 
-    if(lineLength !== parseInt(lineLength)) {
+    if (lineLength !== parseInt(lineLength)) {
       isLengthFloat = true;
     }
     lineLength = parseInt(lineLength) + 1;
@@ -296,7 +296,7 @@ Categories:        \tnews, cards, articles, shapito, polygon.
   showCards: function(doc, dom, urls) {
     const article = [];
 
-    for(i = 0; i < doc.chapters_count; i++) {
+    for (let i = 0; i < doc.chapters_count; i++) {
       article.push(this.showLine(`  ${(i + 1) < 10 ? '0' + (i + 1) : (i + 1)}  `, gold));
       article.push(bold(center(wrap(doc.table_of_contents[i]))));
       article.push(
@@ -331,10 +331,9 @@ Categories:        \tnews, cards, articles, shapito, polygon.
 
     const head = bold('Читайте также:');
     let html = `<ul>${dom.replace('<ul></ul>', '')}</ul>`;
-    html = replaceBrackets(html2text.fromString(
-        replaceUrls(
-          html, arr
-        )
+    html = replaceBrackets(
+      html2text.fromString(
+        replaceUrls(html, arr)
       )
     );
 
@@ -351,8 +350,12 @@ Categories:        \tnews, cards, articles, shapito, polygon.
     const authors = dom.find('.Author');
 
     authors.each(function(idx, author) {
-      const authorName = cheerio(author).find('.Author-name').text();
-      const authorInfo = cheerio(author).find('.Author-info').text();
+      const authorName = cheerio(author)
+        .find('.Author-name')
+        .text();
+      const authorInfo = cheerio(author)
+        .find('.Author-info')
+        .text();
 
       lines.push(bold(authorName));
       lines.push(italic(authorInfo));
@@ -418,7 +421,7 @@ Categories:        \tnews, cards, articles, shapito, polygon.
         };
 
         if (answer in answers) {
-          if(answers[answer]) {
+          if (answers[answer]) {
             // да
             console.log(_this.translate('Тогда приступим!'));
             rl.close();
@@ -464,7 +467,7 @@ Categories:        \tnews, cards, articles, shapito, polygon.
           if (parseInt(answer) === answer) {
             answer = parseInt(answer);
 
-            if (answer > current.answers.length || answer < 1 ) {
+            if (answer > current.answers.length || answer < 1) {
               // не подходит, повторить
               console.log(color.red(_this.translate('Некорректный ответ')));
               rl.close();
@@ -586,7 +589,7 @@ Categories:        \tnews, cards, articles, shapito, polygon.
 
       case 'card':
         article.push(this.showCards(doc, dom.cards, urls));
-        if(urls.length) article.push(this.showLinks(urls));
+        if (urls.length) article.push(this.showLinks(urls));
         break;
 
       case 'feature':
