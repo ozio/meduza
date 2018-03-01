@@ -5,35 +5,36 @@
 // TODO: поиск
 // TODO: категории для английской версии
 
-var argv = require('yargs').argv;
-var color = require('cli-color');
-var restler, moment, cheerio, html2text, wrap, readline;
+const argv = require('yargs').argv;
+const color = require('cli-color');
 
-var gold = function(s) {
+let restler, moment, cheerio, html2text, wrap, readline;
+
+const gold = function(s) {
   return Meduza.settings.color ? color.xterm(215)(s) : s;
 };
-var gray = function(s) {
+const gray = function(s) {
   return Meduza.settings.color ? color.xterm(245)(s) : s;
 };
-var dark = function(s) {
+const dark = function(s) {
   return Meduza.settings.color ? color.xterm(237)(s) : s;
 };
-var underline = function(s) {
+const underline = function(s) {
   return Meduza.settings.color ? color.underline(s) : s;
 };
-var bold = function(s) {
+const bold = function(s) {
   return Meduza.settings.color ? color.bold.white(s) : s;
 };
-var italic = function(s) {
+const italic = function(s) {
   return Meduza.settings.color ? color.italic(s) : s;
 };
-var center = function(s) {
-  var lines = s.split('\n');
+const center = function(s) {
+  let lines = s.split('\n');
 
   lines = lines.map(function(line) {
-    var len = line.length;
-    var paddingLength = parseInt((80 - len) / 2) + 1;
-    var padding = (new Array(paddingLength)).join(' ');
+    const len = line.length;
+    const paddingLength = parseInt((80 - len) / 2) + 1;
+    const padding = (new Array(paddingLength)).join(' ');
 
     return padding + line;
   });
@@ -41,24 +42,25 @@ var center = function(s) {
   return lines.join('\n');
 };
 
-var urlRegex = new RegExp(new RegExp('(?:(?:https?|ftp)://)(?:\\S+(?::\\S*)?@)?(?:(?!(?:10|127)(?:\\.\\d{1,3}){3})(?!(?:169\\.254|192\\.168)(?:\\.\\d{1,3}){2})(?!172\\.(?:1[6-9]|2\\d|3[0-1])(?:\\.\\d{1,3}){2})(?:[1-9]\\d?|1\\d\\d|2[01]\\d|22[0-3])(?:\\.(?:1?\\d{1,2}|2[0-4]\\d|25[0-5])){2}(?:\\.(?:[1-9]\\d?|1\\d\\d|2[0-4]\\d|25[0-4]))|(?:(?:[a-z\\u00a1-\\uffff0-9]-*)*[a-z\\u00a1-\\uffff0-9]+)(?:\\.(?:[a-z\\u00a1-\\uffff0-9]-*)*[a-z\\u00a1-\\uffff0-9]+)*(?:\\.(?:[a-z\\u00a1-\\uffff]{2,})))(?::\\d{2,5})?(?:/[^ \\f\\n\\r\\t\\v\​\u00a0\\u1680\​\u180e\\u2000-\\u200a\​\u2028\\u2029​\\u202f\\u205f\​\u3000\\]]*)?', 'g'));
-var bracketsRegex = new RegExp('\\[\\d+\\]', 'g');
+const urlRegex = new RegExp(new RegExp('(?:(?:https?|ftp)://)(?:\\S+(?::\\S*)?@)?(?:(?!(?:10|127)(?:\\.\\d{1,3}){3})(?!(?:169\\.254|192\\.168)(?:\\.\\d{1,3}){2})(?!172\\.(?:1[6-9]|2\\d|3[0-1])(?:\\.\\d{1,3}){2})(?:[1-9]\\d?|1\\d\\d|2[01]\\d|22[0-3])(?:\\.(?:1?\\d{1,2}|2[0-4]\\d|25[0-5])){2}(?:\\.(?:[1-9]\\d?|1\\d\\d|2[0-4]\\d|25[0-4]))|(?:(?:[a-z\\u00a1-\\uffff0-9]-*)*[a-z\\u00a1-\\uffff0-9]+)(?:\\.(?:[a-z\\u00a1-\\uffff0-9]-*)*[a-z\\u00a1-\\uffff0-9]+)*(?:\\.(?:[a-z\\u00a1-\\uffff]{2,})))(?::\\d{2,5})?(?:/[^ \\f\\n\\r\\t\\v\​\u00a0\\u1680\​\u180e\\u2000-\\u200a\​\u2028\\u2029​\\u202f\\u205f\​\u3000\\]]*)?', 'g'));
+const bracketsRegex = new RegExp('\\[\\d+\\]', 'g');
 
-var replaceUrls = function(html, arr) {
+const replaceUrls = function(html, arr) {
   return html.replace(urlRegex, function(link) {
-    var isSpaned = false;
+    let isSpaned = false;
     if (link.search('"><span') > -1) isSpaned = true;
     arr.push(link.replace('"><span', ''));
     return arr.length + (isSpaned ? '"><span' : '');
   });
 };
-var replaceBrackets = function(html) {
+
+const replaceBrackets = function(html) {
   return html.replace(bracketsRegex, function(brackets) {
     return gold(brackets);
   });
 };
 
-var Meduza = {
+const Meduza = {
   settings: {},
   chronos: {
     news: { ru: 'Новости' },
@@ -71,6 +73,7 @@ var Meduza = {
     'EUR': '€',
     'RUB': '₽',
     'USD': '$',
+    'BTC': 'Ƀ',
     'OIL': '▲',
     '/': '/',
     'up': color.green('↑'),
@@ -78,32 +81,33 @@ var Meduza = {
   },
   spinner: undefined,
   i18n: {
-    'источник': 'source',
-    'Установленная версия': 'Installed version',
-    'актуальная версия': 'last version',
-    'Пожалуйста, обновите программу (npm update -g meduza).': 'Please, update to the latest version (npm update -g meduza).',
-    'Это тест, хотите его пройти?': 'Do you want to pass this test?',
-    'Тогда приступим!': 'Well, then go!',
-    'Как жаль..': 'How sad..',
-    'Варианты ответа y/n/yes/no (yes=да, no=нет).': 'The answers is y/n/yes/no.',
-    'Ваш вариант?': 'Your choice?',
-    'Некорректный ответ': 'Incorrect answer',
-    'Правильно!': 'Right!',
-    'Неправильно, правильный ответ': 'Wrong, right answer',
-    'Ваш результат': 'Your result',
-    'Просто ноль. :(': 'Zero. :(',
-    'Совсем плохо.': 'Very bad.',
-    'Если честно, так себе.': 'To be honest, so-so.',
-    'Весьма неплохо!': 'Not bad!',
-    'Отлично!': 'Good!',
-    'Вы превосходны! :)': 'You are excellent! :)'
+    ['источник']: 'source',
+    ['Установленная версия']: 'Installed version',
+    ['актуальная версия']: 'last version',
+    ['Пожалуйста, обновите программу (npm update -g meduza).']: 'Please, update to the latest version (npm update -g meduza).',
+    ['Это тест, хотите его пройти?']: 'Do you want to pass this test?',
+    ['Тогда приступим!']: 'Well, then go!',
+    ['Как жаль..']: 'How sad..',
+    ['Варианты ответа y/n/yes/no (yes=да, no=нет).']: 'The answers is y/n/yes/no.',
+    ['Ваш вариант?']: 'Your choice?',
+    ['Некорректный ответ']: 'Incorrect answer',
+    ['Правильно!']: 'Right!',
+    ['Неправильно, правильный ответ']: 'Wrong, right answer',
+    ['Ваш результат']: 'Your result',
+    ['Просто ноль. :(']: 'Zero. :(',
+    ['Совсем плохо.']: 'Very bad.',
+    ['Если честно, так себе.']: 'To be honest, so-so.',
+    ['Весьма неплохо!']: 'Not bad!',
+    ['Отлично!']: 'Good!',
+    ['Вы превосходны! :)']: 'You are excellent! :)'
   },
 
   translate: function(s) {
-    return this.settings.locale === 'en' ? this.i18n[s] || '[' + s + ']' : s;
+    return this.settings.locale === 'en' ? this.i18n[s] || `[${s}]` : s;
   },
+
   parseArgv: function() {
-    var settings = {
+    const settings = {
       help: argv.help || argv.h,
       version: argv.version || argv.v,
       locale: argv.english ? 'en' : 'ru',
@@ -124,9 +128,9 @@ var Meduza = {
       settings.number = 30;
     }
 
-    var chronos_arr = Object.keys(this.chronos);
+    const chronos_arr = Object.keys(this.chronos);
 
-    for (var i = 0, l = argv._.length; i < l; i++) {
+    for (let i = 0, l = argv._.length; i < l; i++) {
       if (argv._[i] === 'en') {
         settings.locale = argv._[i];
       } else if (argv._[i].search('meduza.io/') > -1) {
@@ -140,92 +144,98 @@ var Meduza = {
 
     this.settings = settings;
   },
+
   checkUpdates: function() {
-    var _this = this;
+    const _this = this;
 
     restler
       .get('https://raw.githubusercontent.com/ozio/meduza/master/package.json')
       .on('complete', function(data) {
-        var currentVersion = require('./package.json').version;
-        var lastVersion = JSON.parse(data).version;
+        const currentVersion = require('./package.json').version;
+        const lastVersion = JSON.parse(data).version;
 
         _this.spinnerHide();
 
         if (currentVersion !== lastVersion) {
           console.log(_this.showLine('', dark));
-          console.log(color.red(center(_this.translate('Установленная версия') + ': ' + currentVersion + ', ' + _this.translate('актуальная версия') + ': ' + lastVersion + '.')));
+          console.log(color.red(center(`${_this.translate('Установленная версия')}: ${currentVersion}, ${_this.translate('актуальная версия')}: ${lastVersion}.`)));
           console.log(color.red(center(_this.translate('Пожалуйста, обновите программу (npm update -g meduza).'))));
           console.log(_this.showLine('', dark));
           console.log('');
         }
       });
   },
+
   showHelp: function() {
-    var help =
-      '\n' +
-      'Usage: ' + underline(gold('meduza')) + ' [commands/options]\n' +
-      '\n' +
-      'Commands: ' + gray('(you can combine every command with each other)\n') +
-      '\n' +
-      '  meduza           \tOutput latest news.\n' +
-      '  meduza en        \tOutput latest news from english version.\n' +
-      '  meduza <time>    \tOutput article by time (i.e. 15:42).\n' +
-      '  meduza <type>    \tChoose articles type (default: news). Only one and only in russian.\n' +
-      '  meduza <url>     \tOutput article by URL.\n' +
-      '\n' +
-      'Options:\n' +
-      '\n' +
-      '  -t, --type <type>\tChoose articles type (default: news). Only one and only in russian.\n' +
-      '      --english    \tOutput latest news from english version.\n' +
-      '  -s, --show <time>\tOutput article by time (i.e. 15:42).\n' +
-      '  -n, --number <num>\tNumber of news in output (from 1 to 30).\n' +
-      '      --no-color   \tOutput without colors.\n' +
-      '      --exchange   \tShow current exchange rate.\n' +
-      '  -v, --version    \tDisplay version.\n' +
-      '  -h, --help       \tDisplay help information.\n' +
-      '      --sort <recency>\tSort news by recency (latest or oldest).\n' +
-      '\n' +
-      'Categories:        \tnews, cards, articles, shapito, polygon.\n';
+    const help = `
+Usage: ${underline(gold('meduza'))} [commands/options]
+
+Commands: ${gray('(you can combine every command with each other)')}
+
+  meduza           \tOutput latest news.
+  meduza en        \tOutput latest news from english version.
+  meduza <time>    \tOutput article by time (i.e. 15:42).
+  meduza <type>    \tChoose articles type (default: news). Only one and only in russian.
+  meduza <url>     \tOutput article by URL.
+
+Options:
+
+  -t, --type <type>\tChoose articles type (default: news). Only one and only in russian.
+      --english    \tOutput latest news from english version.
+  -s, --show <time>\tOutput article by time (i.e. 15:42).
+  -n, --number <num>\tNumber of news in output (from 1 to 30).
+      --no-color   \tOutput without colors.
+      --exchange   \tShow current exchange rate.
+  -v, --version    \tDisplay version.
+  -h, --help       \tDisplay help information.
+      --sort <recency>\tSort news by recency (latest or oldest).
+
+Categories:        \tnews, cards, articles, shapito, polygon.
+`;
 
     console.log(help);
     return true;
   },
+
   showLogo: function() {
-    var logo =
-      "\n" +
-      "                          ██▄                                  \n" +
-      "                          ██████▄                              \n" +
-      "   ▄█░ ▄██░ ▄██░    ▄██       ▀██░  ███░ ███░  ▄██▄     ▄███░  \n" +
-      "  ▀███░▀███░▀██░  ███░██░ ██░  ██░  ███░ ███░  ▀████░    ▄███░ \n" +
-      "   ███░ ███░ ██░  ███░█░  ██░  ██░  ███░ ███░    ▄▀    ▄█▀███░ \n" +
-      "   ███░ ███░ ██░  ███░    ██░  ██░  ███░ ███░   ▄▀    ██░ ███░ \n" +
-      "   ███░ ███░ ██░  ███░    ███░ ██░  ███░ ███░  █████░ ██░ ███░ \n" +
-      "   ███░ ███░ ███░ ▀████░   ▀████░   ▀███▀███▀   ▀███░ ███▀████░  " + gray('v' + require('./package.json').version);
+    const logo = `
+                          ██▄                                  
+                          ██████▄                              
+   ▄█░ ▄██░ ▄██░    ▄██       ▀██░  ███░ ███░  ▄██▄     ▄███░  
+  ▀███░▀███░▀██░  ███░██░ ██░  ██░  ███░ ███░  ▀████░    ▄███░ 
+   ███░ ███░ ██░  ███░█░  ██░  ██░  ███░ ███░    ▄▀    ▄█▀███░ 
+   ███░ ███░ ██░  ███░    ██░  ██░  ███░ ███░   ▄▀    ██░ ███░ 
+   ███░ ███░ ██░  ███░    ███░ ██░  ███░ ███░  █████░ ██░ ███░ 
+   ███░ ███░ ███░ ▀████░   ▀████░   ▀███▀███▀   ▀███░ ███▀████░  ${gray('v' + require('./package.json').version)}
+`;
 
     console.log(gold(logo));
   },
+
   showVersion: function() {
     console.log(require('./package.json').version);
     return true;
   },
-  showDateLine: function(timestamp) {
-    var string = '══ ' + moment(timestamp, 'X').format('LL') + ' ';
-    var len = this.settings.wrap - string.length;
-    string += (new Array(len+1)).join('═');
-    console.log('\n' + string + '\n');
-  },
-  showLine: function(separator, color) {
-    var wrapCharsCount = this.settings.wrap + 1;
-    var isLengthFloat = false;
 
-    var lineLength = (wrapCharsCount - separator.length) / 2;
+  showDateLine: function(timestamp) {
+    let string = `══ ${moment(timestamp, 'X').format('LL')} `;
+    const len = this.settings.wrap - string.length;
+    string += (new Array(len+1)).join('═');
+    console.log(`\n${string}\n`);
+  },
+
+  showLine: function(separator, color) {
+    const wrapCharsCount = this.settings.wrap + 1;
+    let isLengthFloat = false;
+
+    let lineLength = (wrapCharsCount - separator.length) / 2;
 
     if(lineLength !== parseInt(lineLength)) {
       isLengthFloat = true;
     }
     lineLength = parseInt(lineLength) + 1;
 
-    var line = [
+    const line = [
       (new Array(lineLength - (isLengthFloat ? 0 : 1))).join('─'),
       separator,
       (new Array(lineLength)).join('─')
@@ -233,55 +243,61 @@ var Meduza = {
 
     return color(line.join(''));
   },
-  showArticleShort: function(doc) {
-    var time = moment(doc.published_at, 'X').format('H:mm');
-    var title = wrap(doc.title);
-    var secondTitle = doc.second_title ? wrap(doc.second_title) : null;
-    var type = doc.tag ? doc.tag.name : doc.document_type;
-    var url = doc.document_type === 'promo' ? doc.promo_url.replace('http://', '') : 'https://meduza.io/' + doc.url;
 
-    console.log(gray(time) + ' ' + gold(type.toUpperCase()));
+  showArticleShort: function(doc) {
+    const time = moment(doc.published_at, 'X').format('H:mm');
+    const title = wrap(doc.title);
+    const secondTitle = doc.second_title ? wrap(doc.second_title) : null;
+    const type = doc.tag ? doc.tag.name : doc.document_type;
+    const url = `${doc.document_type === 'promo'
+      ? doc.promo_url.replace('http://', '')
+      : `https://meduza.io/${doc.url}`
+    }`;
+
+    console.log(`${gray(time)} ${gold(type.toUpperCase())}`);
     console.log(title);
     if (secondTitle) console.log(secondTitle);
     console.log(dark(url));
   },
+
   showQuote: function(source, urls) {
-    //var line = gray((new Array(this.settings.wrap + 1)).join('·')) + '\n' + gray(text_quot) + '\n' + gray((new Array(this.settings.wrap)).join('·')) + '\n';
-    var quoteWrap = require('wordwrap')(this.settings.wrap - 2);
+    const quoteWrap = require('wordwrap')(this.settings.wrap - 2);
 
-    var wrappedText = quoteWrap(source.quote);
-    var sourceText = quoteWrap(source.name.toUpperCase() + ' [' + replaceUrls(source.url, urls) + ']');
-    var resText = '';
+    const wrappedText = quoteWrap(source.quote);
+    const sourceText = quoteWrap(`${source.name.toUpperCase()} [${replaceUrls(source.url, urls)}]`);
+    let resText = '';
 
-    var textArr = wrappedText.split('\n');
-    var sourceArr = sourceText.split('\n');
+    const textArr = wrappedText.split('\n');
+    const sourceArr = sourceText.split('\n');
 
     textArr.push(dark((new Array(this.settings.wrap - 1)).join('─')));
 
     textArr.forEach(function(item) {
-      resText += gold('┃ ') + item + '\n';
+      resText += `${gold('┃ ') + item}\n`;
     });
-// →
+
     sourceArr.forEach(function(item, idx) {
-      resText += gold('┃ ') + (idx > 0 ? '  ' : gold('→ ')) + replaceBrackets(item) + '\n';
+      resText += `${gold('┃ ')}${idx > 0 ? '  ' : gold('→ ')}${replaceBrackets(item)}\n`;
     });
 
     return gray(resText.trim());
   },
+
   showContext: function(dom, $, urls) {
-    var context = '<ul>';
+    let context = '<ul>';
     dom.each(function(idx, el) {
-      context += '<li>' + replaceUrls($(el).text(), urls) + '<br></li>';
+      context += `<li>${replaceUrls($(el).text(), urls)}<br></li>`;
     });
     context += '</ul>';
 
     return context;
   },
+
   showCards: function(doc, dom, urls) {
-    var article = [];
+    const article = [];
 
     for(i = 0; i < doc.chapters_count; i++) {
-      article.push(this.showLine('  ' + ((i+1) < 10 ? '0' + (i+1) : (i+1)) + '  ', gold));
+      article.push(this.showLine(`  ${(i + 1) < 10 ? '0' + (i + 1) : (i + 1)}  `, gold));
       article.push(bold(center(wrap(doc.table_of_contents[i]))));
       article.push(
         replaceBrackets(
@@ -299,21 +315,22 @@ var Meduza = {
 
     return article.join('\n\n')
   },
+
   showLinks: function(arr) {
-    var res = [];
-    var links = '';
+    let links = '';
 
     arr.forEach(function(item, idx) {
-      links += '[' + (idx + 1) + '] – ' + underline(item) + '\n';
+      links += `[${idx + 1}] – ${underline(item)}\n`;
     });
 
-    return this.showLine('', dark) + '\n' + gray(links.trim());
+    return `${this.showLine('', dark)}\n${gray(links.trim())}`;
   },
-  showRelated: function(dom, arr) {
-    var res = [];
 
-    var head = bold('Читайте также:');
-    var html = '<ul>' + dom.replace('<ul></ul>', '') + '</ul>';
+  showRelated: function(dom, arr) {
+    const res = [];
+
+    const head = bold('Читайте также:');
+    let html = `<ul>${dom.replace('<ul></ul>', '')}</ul>`;
     html = replaceBrackets(html2text.fromString(
         replaceUrls(
           html, arr
@@ -322,19 +339,20 @@ var Meduza = {
     );
 
     res.push(head);
-    res.push(' ' + html);
+    res.push(` ${html}`);
 
     return res.join('\n\n');
   },
+
   showAuthors: function(dom) {
-    var lines = [];
+    const lines = [];
 
     lines.push(gold('━━━━━━'));
-    var authors = dom.find('.Author');
+    const authors = dom.find('.Author');
 
     authors.each(function(idx, author) {
-      var authorName = cheerio(author).find('.Author-name').text();
-      var authorInfo = cheerio(author).find('.Author-info').text();
+      const authorName = cheerio(author).find('.Author-name').text();
+      const authorInfo = cheerio(author).find('.Author-info').text();
 
       lines.push(bold(authorName));
       lines.push(italic(authorInfo));
@@ -342,58 +360,59 @@ var Meduza = {
 
     return lines.join('\n');
   },
-  showQuiz: function(dom) {
-    var _this = this;
 
-    var quizgroups = dom.find('.QuizGroup');
-    var questions = [];
-    var currentQuestion = 0;
-    var rightAnswers = 0;
+  showQuiz: function(dom) {
+    const _this = this;
+
+    const quizgroups = dom.find('.QuizGroup');
+    const questions = [];
+    let currentQuestion = 0;
+    let rightAnswers = 0;
 
     cheerio(quizgroups).each(function(idx, item) {
-      var obj = {
+      const obj = {
         question: cheerio(item).find('.QuizGroup-title').text(),
         figure: null,
         answers: [],
         answer: null
       };
 
-      var figure = cheerio(item).find('.Figure');
+      const figure = cheerio(item).find('.Figure');
       if (figure.length) {
         obj.figure = {};
 
-        var img = cheerio(figure).find('img');
-        var caption = cheerio(figure).find('.Figure-caption');
+        const img = cheerio(figure).find('img');
+        const caption = cheerio(figure).find('.Figure-caption');
         if (img.length) {
-          obj.figure.url = 'https://meduza.io' + img.attr('src');
+          obj.figure.url = `https://meduza.io${img.attr('src')}`;
           obj.figure.caption = caption.text().trim();
         }
       }
 
-      var answers = cheerio(item).find('.QuizGroup-item');
+      const answers = cheerio(item).find('.QuizGroup-item');
       answers.each(function(answerIdx, answerItem) {
-        var answer = cheerio(answerItem);
+        const answer = cheerio(answerItem);
 
         obj.answers.push(answer.text());
 
         if (answer.find('.QuizGroup-radio--ok').length) {
-          obj.answer = (answerIdx + 1) + "";
+          obj.answer = `${answerIdx + 1}`;
         }
       });
 
       questions.push(obj);
     });
 
-    var rl = readline.createInterface({
+    const rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout
     });
 
     function askForQuiz() {
-      rl.question('\n' + _this.translate('Это тест, хотите его пройти?') + ' (Y/n) ', function(answer) {
+      rl.question(`\n${_this.translate('Это тест, хотите его пройти?')} (Y/n) `, function(answer) {
         if (answer === '') answer = 'y';
 
-        var answers = {
+        const answers = {
           y: true, yes: true, Y: true, YES: true,
           n: false, no: false, N: false, NO: false
         };
@@ -406,7 +425,7 @@ var Meduza = {
             return askQuestion();
           } else {
             // нет
-            console.log(_this.translate('Как жаль..') + '\n');
+            console.log(`${_this.translate('Как жаль..')}\n`);
           }
 
           rl.close();
@@ -419,30 +438,30 @@ var Meduza = {
     }
 
     function askQuestion() {
-      var rl = readline.createInterface({
+      const rl = readline.createInterface({
         input: process.stdin,
         output: process.stdout
       });
 
       if (questions[currentQuestion]) {
-        var current = questions[currentQuestion];
+        const current = questions[currentQuestion];
 
         // если следующий вопрос есть
 
-        var askString = '(' + (currentQuestion + 1) + '/' + questions.length + ') ' + current.question;
+        let askString = `(${currentQuestion + 1}/${questions.length}) ${current.question}`;
         askString = '\n' +
           bold(wrap(askString)) +
           gray(current.figure ? '\n' + underline(current.figure.url) + (current.figure.caption ? '\n' + italic(current.figure.caption) : '') : '') +
           '\n';
 
         current.answers.forEach(function(item, idx) {
-          askString += (idx + 1) + ') ' + item + '\n';
+          askString += `${idx + 1}) ${item}\n`;
         });
 
-        askString += _this.translate('Ваш вариант?') + ' ';
+        askString += `${_this.translate('Ваш вариант?')} `;
 
         rl.question(askString, function(answer) {
-          if (parseInt(answer) == answer) {
+          if (parseInt(answer) === answer) {
             answer = parseInt(answer);
 
             if (answer > current.answers.length || answer < 1 ) {
@@ -453,13 +472,13 @@ var Meduza = {
 
             } else {
               // подходит
-              if (current.answer == answer) {
+              if (current.answer === answer) {
                 // угадал
                 console.log(color.green(_this.translate('Правильно!')));
                 rightAnswers++;
               } else {
                 // не угадал
-                console.log(color.red(_this.translate('Неправильно, правильный ответ') + ': ') + underline(current.answer));
+                console.log(color.red(`${_this.translate('Неправильно, правильный ответ')}: `) + underline(current.answer));
               }
               rl.close();
 
@@ -479,8 +498,8 @@ var Meduza = {
 
         rl.close();
 
-        var resString = '\n' + _this.translate('Ваш результат') + ': ' + rightAnswers + '/' + questions.length + '. ';
-        var resRate = (rightAnswers / questions.length);
+        let resString = `\n${_this.translate('Ваш результат')}: ${rightAnswers}/${questions.length}. `;
+        const resRate = (rightAnswers / questions.length);
 
         if (resRate === 0) {
           resString += color.red(_this.translate('Просто ноль. :('));
@@ -496,7 +515,7 @@ var Meduza = {
           resString += gold(_this.translate('Вы превосходны! :)'));
         }
 
-        console.log(resString + '\n');
+        console.log(`${resString}\n`);
 
         process.exit(1);
       }
@@ -504,13 +523,14 @@ var Meduza = {
 
     return askForQuiz();
   },
+
   showGallery: function(gallery, urls, compileString) {
-    var lines = [];
+    const lines = [];
 
     gallery.forEach(function(item) {
-      var url = 'https://meduza.io' + item.large_url;
-      var credit = compileString(item.credit);
-      var text = compileString(item.text);
+      const url = `https://meduza.io${item.large_url}`;
+      const credit = compileString(item.credit);
+      const text = compileString(item.text);
 
       lines.push(underline(gold(url)));
       if (credit) lines.push(gray(credit));
@@ -520,19 +540,19 @@ var Meduza = {
 
     return lines.join('\n');
   },
+
   showArticleFull: function(doc) {
-    var type = doc.tag ? doc.tag.name : doc.document_type;
-    var title = bold(wrap(doc.title));
-    var second_title = doc.second_title ? wrap(doc.second_title) : doc.second_title;
-    var time = moment(doc.published_at, 'X').format('LLL');
-    var source = doc.source ? doc.source.name : '';
-    var url = 'https://meduza.io/' + doc.url;
-    var urls = [];
+    const type = doc.tag ? doc.tag.name : doc.document_type;
+    const title = bold(wrap(doc.title));
+    const second_title = doc.second_title ? wrap(doc.second_title) : doc.second_title;
+    const time = moment(doc.published_at, 'X').format('LLL');
+    const source = doc.source ? doc.source.name : '';
+    let url = `https://meduza.io/${doc.url}`;
+    const urls = [];
 
-    var text;
-    var $ = cheerio.load(doc.content.body);
+    const $ = cheerio.load(doc.content.body);
 
-    var compileString = (function(html) {
+    const compileString = (function(html) {
       return replaceBrackets(
         wrap(
           replaceUrls(
@@ -542,7 +562,7 @@ var Meduza = {
       );
     }).bind(this);
 
-    var dom = {
+    const dom = {
       lead: $('.Lead'),
       body: $('.Body'),
       related: $('.Related ul'),
@@ -556,7 +576,7 @@ var Meduza = {
     dom.body.find('.Figure').remove(); // убрал вообще, потому что картинки в консоли не видны, а подписи ломают текст
     dom.body.find('.Embed').remove(); // то же самое и для видео
 
-    var article = [];
+    const article = [];
 
     switch (doc.document_type) {
       case 'promo':
@@ -574,8 +594,8 @@ var Meduza = {
           if (dom.lead.length) article.push(compileString(dom.lead.html()), this.showLine('  ◆ ◆ ◆  ', dark));
           if (dom.authors.length) article.push(this.showAuthors(dom.authors));
           if (urls.length) article.push(this.showLinks(urls));
-          break;
         }
+        break;
 
       default:
         if (dom.lead.length) article.push(compileString(dom.lead.html()), this.showLine('  ◆ ◆ ◆  ', dark));
@@ -594,66 +614,69 @@ var Meduza = {
     console.log(gold(type.toUpperCase()));
     console.log(title);
     if (second_title) console.log(second_title);
-    console.log(gray(time + (!source || source !== 'Meduza' ? ', ' + this.translate('источник') + ': ' + source : '')));
+    console.log(gray(`${time}${!source || source !== 'Meduza' ? `, ${this.translate('источник')}: ${source}` : ''}`));
     console.log('');
     console.log(article.join('\n\n').trim());
 
     if (dom.quiz.length) {
-      console.log(url ? underline(dark('\n' + url)) : '');
+      console.log(url ? underline(dark(`\n${url}`)) : '');
       this.showQuiz(dom.quiz);
     } else {
-      console.log(url ? underline(dark('\n' + url + '\n')) : '');
+      console.log(url ? underline(dark(`\n${url}\n`)) : '');
     }
-
   },
+
   spinnerShow: function() {
     if (!this.spinner) {
-      var Spinner = require('cli-spinner').Spinner;
+      const Spinner = require('cli-spinner').Spinner;
       this.spinner = new Spinner('%s');
       this.spinner.setSpinnerString('⣾⣽⣻⢿⡿⣟⣯⣷');
       this.spinner.setSpinnerDelay(50);
     }
     this.spinner.start();
   },
+
   spinnerHide: function() {
     this.spinner.stop(true);
   },
-  getArticleByURL: function(url) {
-    var _this = this;
 
-    var pathnameStart = url.search('meduza.io/') + 'meduza.io/'.length;
-    var pathname = url.slice(pathnameStart);
+  getArticleByURL: function(url) {
+    const _this = this;
+
+    const pathnameStart = url.search('meduza.io/') + 'meduza.io/'.length;
+    const pathname = url.slice(pathnameStart);
 
     this.spinnerShow();
-    restler.get('https://meduza.io/api/v3/' + pathname)
+    restler.get(`https://meduza.io/api/v3/${pathname}`)
       .on('complete', function(data) {
         _this.spinnerHide();
         _this.showArticleFull(data.root);
       });
   },
+
   getArticles: function() {
     this.spinnerShow();
-    var _this = this;
+    const _this = this;
 
     restler
-      .get('https://meduza.io/api/v3/search?chrono=' + this.settings.chrono + '&page=0&per_page=' + this.settings.number + '&locale=' + this.settings.locale)
+      .get(`https://meduza.io/api/v3/search?chrono=${this.settings.chrono}&page=0&per_page=${this.settings.number}&locale=${this.settings.locale}`)
       .on('complete', function(data) {
         _this.spinnerHide();
 
-        var collection = data.collection;
-        var documents = data.documents;
+        const documents = data.documents;
+        let collection = data.collection;
 
         if (_this.settings.sort === 'oldest') {
           collection = collection.reverse();
         }
 
-        var momentBefore;
-        var momentNow;
+        let momentBefore;
+        let momentNow;
 
         if (!_this.settings.show) _this.showLogo();
 
-        for (var i = 0; i < _this.settings.number; i++) {
-          var doc = documents[collection[i]];
+        for (let i = 0; i < _this.settings.number; i++) {
+          const doc = documents[collection[i]];
 
           if (!doc) return;
 
@@ -666,10 +689,10 @@ var Meduza = {
             momentBefore = momentNow;
             _this.showArticleShort(doc);
           } else {
-            var time = moment(doc.published_at, 'X').format('H:mm');
+            const time = moment(doc.published_at, 'X').format('H:mm');
             if (time === _this.settings.show) {
               _this.spinnerShow();
-              restler.get('https://meduza.io/api/v3/' + doc.url)
+              restler.get(`https://meduza.io/api/v3/${doc.url}`)
                 .on('complete', function(data) {
                   _this.spinnerHide();
                   _this.showArticleFull(data.root);
@@ -682,23 +705,24 @@ var Meduza = {
 
   showExchangeRate: function() {
     this.spinnerShow();
-    var _this = this;
+    const _this = this;
 
     restler
       .get('https://meduza.io/api/v3/stock/all')
       .on('complete', function(result) {
         _this.spinnerHide();
-        var exchange;
-        var data;
+        let exchange;
+        let data;
 
         try {
           data = JSON.parse(result);
 
-          var strings = [];
+          const strings = [];
 
-          strings.push( gold(Meduza.currency.EUR) + ' ' + data.eur.current.toFixed(2) + Meduza.currency[data.eur.state]);
-          strings.push( gold(Meduza.currency.USD) + ' ' + data.usd.current.toFixed(2) + Meduza.currency[data.eur.state]);
-          strings.push( gold(Meduza.currency.OIL) + ' ' + data.brent.current.toFixed(2) + Meduza.currency[data.eur.state]);
+          strings.push(`${gold(Meduza.currency.EUR)} ${data.eur.current.toFixed(2)}${Meduza.currency[data.eur.state]}`);
+          strings.push(`${gold(Meduza.currency.USD)} ${data.usd.current.toFixed(2)}${Meduza.currency[data.usd.state]}`);
+          strings.push(`${gold(Meduza.currency.OIL)} ${data.brent.current.toFixed(2)}${Meduza.currency[data.brent.state]}`);
+          strings.push(`${gold(Meduza.currency.BTC)} ${data.btc}₽`);
 
           exchange = strings.join('  ');
 
