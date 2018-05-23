@@ -30,6 +30,7 @@ Options:
   -v, --version    	Display version.
   -h, --help       	Display help information.
       --sort <recency>	Sort news by recency (latest or oldest).
+      --no-logo         Output without the Meduza logo.
 
 Categories:        	news, cards, articles, shapito, polygon.
 ```
