@@ -117,7 +117,8 @@ const Meduza = {
       wrap: 80,
       number: parseInt(argv.number || argv.n),
       exchange: argv.exchange,
-      sort: argv.sort
+      sort: argv.sort,
+      showLogo: !(argv.logo === false)
     };
 
     if (isNaN(settings.number)) {
@@ -189,6 +190,7 @@ Options:
   -v, --version    \tDisplay version.
   -h, --help       \tDisplay help information.
       --sort <recency>\tSort news by recency (latest or oldest).
+      --no-logo    \tOutput without the Meduza logo.
 
 Categories:        \tnews, cards, articles, shapito, polygon.
 `;
@@ -676,7 +678,9 @@ Categories:        \tnews, cards, articles, shapito, polygon.
         let momentBefore;
         let momentNow;
 
-        if (!_this.settings.show) _this.showLogo();
+        if (!_this.settings.show && _this.settings.showLogo) {
+          _this.showLogo();
+        }
 
         for (let i = 0; i < _this.settings.number; i++) {
           const doc = documents[collection[i]];
