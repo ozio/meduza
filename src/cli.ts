@@ -20,8 +20,6 @@ import settings from './settings';
 import { isValidTime, isValidURL } from './helpers';
 import { Options } from './types';
 
-console.log(process.env.ITERM_SESSION_ID);
-
 const parseArguments = (args: string[]): Options => {
   const options: Options = {
     language: 'ru',
@@ -30,6 +28,7 @@ const parseArguments = (args: string[]): Options => {
 
   const opts = getopts(args, {
     alias: {
+      s: 'search',
       h: 'help',
       e: 'exchange',
       v: 'version',
@@ -40,6 +39,11 @@ const parseArguments = (args: string[]): Options => {
   if (opts.help) options.action = 'help';
   if (opts.exchange) options.action = 'exchange';
   if (opts.version) options.action = 'version';
+
+  if (opts.search) {
+    options.action = 'search';
+    options.payload = { search: opts.search };
+  }
 
   opts._.forEach(key => {
     if (key === 'en') {

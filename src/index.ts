@@ -2,6 +2,7 @@ import parseArguments from './cli';
 import showHelp from './screens/help';
 import showVersion from './screens/version';
 import showList from './screens/list';
+import showExchange from './screens/exchange';
 
 const meduza = () => {
   const options = parseArguments(process.argv.slice(2));
@@ -15,7 +16,7 @@ const meduza = () => {
   }
 
   if (options.action === 'exchange') {
-
+    return showExchange();
   }
 
   if (options.action === 'index') {

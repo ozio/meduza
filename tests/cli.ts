@@ -53,6 +53,20 @@ test('Category options', () => {
   });
 });
 
+test('Search options', () => {
+  expect(pa('--search github')).toMatchObject({
+    language: 'ru',
+    action: 'search',
+    payload: { search: 'github' },
+  });
+
+  expect(parseArguments(['-s', 'a b c'])).toMatchObject({
+    language: 'ru',
+    action: 'search',
+    payload: { search: 'a b c' },
+  });
+});
+
 test('Time options', () => {
   expect(pa('14:54')).toMatchObject({
     language: 'ru',

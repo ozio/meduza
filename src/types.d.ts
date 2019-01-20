@@ -1,5 +1,5 @@
 export type MLanguage = 'ru' | 'en';
-export type MAction = 'help' | 'exchange' | 'version' | 'url' | 'index' | 'category' | 'time';
+export type MAction = 'help' | 'exchange' | 'version' | 'url' | 'index' | 'category' | 'time' | 'search';
 
 export interface Options {
   language: MLanguage;
@@ -8,6 +8,7 @@ export interface Options {
     category?: string;
     time?: string;
     url?: string;
+    search?: string;
   };
   props?: {
     number?: number;
