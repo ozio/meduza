@@ -1,6 +1,6 @@
-# Meduza [<3](https://meduza.io/shapito/2015/06/02/vyshel-neofitsialnyy-terminalnyy-klient-meduzy)
+![img](https://ozio.io/static/images/meduza.svg) [<3](https://meduza.io/shapito/2015/06/02/vyshel-neofitsialnyy-terminalnyy-klient-meduzy)
 
-Simple Meduza([meduza.io](https://meduza.io)) terminal client.
+[meduza.io](https://meduza.io) terminal client.
 
 ## Installation
 
